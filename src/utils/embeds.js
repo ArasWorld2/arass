@@ -42,10 +42,10 @@ function buildMainEmbed(flight, allocation) {
       {
         name: '\u200B',
         value: [
-          `🌍 **${flight.from}  →  ${flight.to}**`,
-          `✈️  ${flight.aircraft}`,
-          `👤  Operations Controller: ${flight.controller ? `<@${flight.controller}>` : 'TBA'}`,
-          `🕐  Duty Report: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
+         `🌍 **Route:** ${flight.from}  →  ${flight.to}`,
+         `✈️ **Plane:** ${flight.aircraft}`,
+          `👤  Flight Dispatcher: ${flight.controller ? `<@${flight.controller}>` : 'TBA'}`,
+          `🕐  Personnel Joining time: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
         ].join('\n'),
       },
       {
