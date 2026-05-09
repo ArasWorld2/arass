@@ -29,7 +29,7 @@ function buildMainEmbed(flight, allocation) {
 
   return new EmbedBuilder()
     .setColor(WIZZ_PURPLE)
-    .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Wizz_Air_logo.svg/320px-Wizz_Air_logo.svg.png' })
+    .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
     .addFields(
       {
         name: '🛫  DEPARTURE DUTY',
@@ -45,7 +45,7 @@ function buildMainEmbed(flight, allocation) {
           `🌍 **Route:** ${flight.from}  →  ${flight.to}`,
           `✈️ **Plane:** ${flight.aircraft}`,
           `📡 **Flight Dispatcher:** ${allocation && allocation.dispatchSupervisor && allocation.dispatchSupervisor[0] ? `<@${allocation.dispatchSupervisor[0]}>` : 'TBA'}`,
-          `🕐  Duty Report: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
+          `🕐  Personnel Join Time: ${flight.staffTime}  |  Passenger Joining Time: ${flight.passengerTime}`,
         ].join('\n\n'),
       },
       {
