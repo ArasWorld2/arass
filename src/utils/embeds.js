@@ -1,6 +1,9 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 
-// Role definitions: key, label, emoji, max slots
+// Wizz Air purple: #C6007E (pink/magenta) or #8B1DB8 (purple)
+const WIZZ_PURPLE = 0xC6007E;
+
+// Role definitions
 const ROLES = [
   { key: 'captain',             label: 'Captain',               emoji: '🧑‍✈️', max: 1 },
   { key: 'firstOfficer',        label: 'First Officer',         emoji: '✈️',   max: 1 },
@@ -25,30 +28,33 @@ function buildMainEmbed(flight, allocation) {
   }).join('\n');
 
   return new EmbedBuilder()
-    .setColor(0x1a1a2e)
+    .setColor(WIZZ_PURPLE)
+    .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Wizz_Air_logo.svg/320px-Wizz_Air_logo.svg.png' })
     .addFields(
       {
-        name: '**DEPARTURE DUTY**\nجدول المغادرة',
-        value: `${flight.date || 'Today'} ✦ ${flight.number}`,
+        name: '🛫  DEPARTURE DUTY',
+        value: `**${flight.date || 'Today'}  ✦  ${flight.number}**`,
       },
       {
         name: '\u200B',
-        value: `Regard the newest ✈️ **${flight.airline || 'Flight Operations'}** duty briefing. **Ensure to** acknowledge all **information** contained within this message. **Be reminded** this is subject to alter. In order to allocate, interact with the message additions below.`,
+        value: `Regard the newest ✈️ **Wizz Air** duty briefing. **Ensure to** acknowledge all **information** contained within this message. **Be reminded** this is subject to alter. In order to allocate, interact with the dropdown below.`,
       },
       {
         name: '\u200B',
         value: [
-          `🌍 **${flight.from} - ${flight.to}**`,
-          `✈️ ${flight.aircraft}`,
-          `👤 Operations Controller: ${flight.controller ? `<@${flight.controller}>` : 'TBA'}`,
-          `🔵 Duty Report: ${flight.staffTime} | Passenger Report: ${flight.passengerTime}`,
+          `🌍 **${flight.from}  →  ${flight.to}**`,
+          `✈️  ${flight.aircraft}`,
+          `👤  Operations Controller: ${flight.controller ? `<@${flight.controller}>` : 'TBA'}`,
+          `🕐  Duty Report: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
         ].join('\n'),
       },
       {
-        name: '**ASSIGNMENT SELECTION**\nاختيار المهمة',
+        name: '📋  ASSIGNMENT SELECTION',
         value: roleLines,
       }
-    );
+    )
+    .setFooter({ text: 'Wizz Air Virtual Operations • Select a role below to sign up' })
+    .setTimestamp();
 }
 
 function buildDropdown() {
