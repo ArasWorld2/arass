@@ -7,7 +7,7 @@ const WIZZ_PURPLE = 0xC6007E;
 const ROLES = [
   { key: 'dispatchSupervisor', label: 'Flight Dispatcher', emoji: '<:WP_person:1392562551597961346>', max: 1 },
   { key: 'dispatchSuperviso', label: 'Flight Supervisor', emoji: '<:WP_person:1392562551597961346>', max: 1 },
-  { key: 'captain',             label: 'Captain',               emoji: ':WP_woman:', max: 1 },
+  { key: 'captain',             label: 'Captain',               emoji: '<:WP_woman:1392562577405509783>', max: 1 },
   { key: 'firstOfficer',        label: 'First Officer',         emoji: '<:WP_link:1392562549144293437>',   max: 1 },
   { key: 'purser',              label: 'Senior Cabin Attendant',          emoji: '<:WP_chat:1392562630991810841>',   max: 1 },
   { key: 'cabinCrew',           label: 'Cabin Crew',            emoji: '<:WP_people:1392562569818013870>',   max: 4 },
@@ -46,7 +46,7 @@ function buildMainEmbed(flight, allocation) {
           `<:WP_europe:1392562534053183519> **Route:** ${flight.from}  →  ${flight.to}`,
           ` **Plane:** ${flight.aircraft}`,
           `<:WP_clock:1392562574935195739>   Personnel Join Time: ${flight.staffTime}  |  Passenger Joining Time: ${flight.passengerTime}`,
-        ]
+        ].join('\n'),
       },
       {
         name: '',
