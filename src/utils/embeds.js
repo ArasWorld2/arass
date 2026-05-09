@@ -7,11 +7,11 @@ const WIZZ_PURPLE = 0xC6007E;
 const ROLES = [
   { key: 'captain',             label: 'Captain',               emoji: '🧑‍✈️', max: 1 },
   { key: 'firstOfficer',        label: 'First Officer',         emoji: '✈️',   max: 1 },
-  { key: 'purser',              label: 'Cabin Purser',          emoji: '🎫',   max: 1 },
+  { key: 'purser',              label: 'Senior Cabin Attendant',          emoji: '🎫',   max: 1 },
   { key: 'cabinCrew',           label: 'Cabin Crew',            emoji: '👤',   max: 4 },
-  { key: 'groundHandling',      label: 'Tarmac Manager',        emoji: '🔵',   max: 1 },
-  { key: 'tarmacSupervisor',    label: 'Tarmac Agent',          emoji: '⚠️',   max: 3 },
-  { key: 'dispatchCoordinator', label: 'Customer Assistance',   emoji: '🎯',   max: 3 },
+  { key: 'groundHandling',      label: 'Turnaround Manager',        emoji: '🔵',   max: 1 },
+  { key: 'tarmacSupervisor',    label: 'Ground Crew',          emoji: '⚠️',   max: 3 },
+  { key: 'dispatchCoordinator', label: 'Customer Service',   emoji: '🎯',   max: 3 },
   { key: 'dispatchSupervisor', label: 'Flight Dispatcher', emoji: '📡', max: 1 },
 ];
 
