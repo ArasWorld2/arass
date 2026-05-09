@@ -46,8 +46,7 @@ function buildMainEmbed(flight, allocation) {
           `<:WP_europe:1392562534053183519> **Route:** ${flight.from}  →  ${flight.to}`,
           ` **Plane:** ${flight.aircraft}`,
           `<:WP_clock:1392562574935195739>   Personnel Join Time: ${flight.staffTime}  |  Passenger Joining Time: ${flight.passengerTime}`,
-          `\n**Flight Roles**`,
-        ].join('\n'),
+        ]
       },
       {
         name: '',
