@@ -12,7 +12,7 @@ const ROLES = [
   { key: 'groundHandling',      label: 'Tarmac Manager',        emoji: '🔵',   max: 1 },
   { key: 'tarmacSupervisor',    label: 'Tarmac Agent',          emoji: '⚠️',   max: 3 },
   { key: 'dispatchCoordinator', label: 'Customer Assistance',   emoji: '🎯',   max: 3 },
-  { key: 'dispatchSupervisor',  label: 'Operations Controller', emoji: '🎖️',   max: 1 },
+  { key: 'flightDispatcher',    label: 'Flight Dispatcher',     emoji: '📡',   max: 1 },
 ];
 
 function getRoleConfig(key) {
@@ -42,10 +42,10 @@ function buildMainEmbed(flight, allocation) {
       {
         name: '\u200B',
         value: [
-         `🌍 **Route:** ${flight.from}  →  ${flight.to}`,
-         `✈️ **Plane:** ${flight.aircraft}`,
-          `👤  Flight Dispatcher: ${flight.controller ? `<@${flight.controller}>` : 'TBA'}`,
-          `🕐  Personnel Joining time: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
+          `🌍 **${flight.from}  →  ${flight.to}**`,
+          `✈️ **Plane:** ${flight.aircraft}`,
+          `📡 **Flight Dispatcher:** ${allocation && allocation.flightDispatcher && allocation.flightDispatcher[0] ? `<@${allocation.flightDispatcher[0]}>` : 'TBA'}`,
+          `🕐  Duty Report: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
         ].join('\n'),
       },
       {
@@ -58,12 +58,14 @@ function buildMainEmbed(flight, allocation) {
 }
 
 function buildDropdown() {
-  const options = ROLES.map(role =>
-    new StringSelectMenuOptionBuilder()
-      .setLabel(role.label)
-      .setValue(`join_${role.key}`)
-      .setDescription(`Join or leave ${role.label} (max ${role.max})`)
-  );
+  const options = ROLES
+    .filter(role => !role.autoFilled)
+    .map(role =>
+      new StringSelectMenuOptionBuilder()
+        .setLabel(role.label)
+        .setValue(`join_${role.key}`)
+        .setDescription(`Join or leave ${role.label} (max ${role.max})`)
+    );
 
   const select = new StringSelectMenuBuilder()
     .setCustomId('role_select')

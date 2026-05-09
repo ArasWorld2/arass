@@ -16,6 +16,7 @@ const allocationSchema = new mongoose.Schema({
   // Each role stores array of user IDs
   dispatchCoordinator: { type: [String], default: [] },
   dispatchSupervisor:  { type: [String], default: [] },
+  flightDispatcher:    { type: [String], default: [] },
   captain:             { type: [String], default: [] },
   firstOfficer:        { type: [String], default: [] },
   cabinCrew:           { type: [String], default: [] },

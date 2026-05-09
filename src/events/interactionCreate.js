@@ -44,10 +44,20 @@ module.exports = {
     // Toggle off if already in filled
     if (filled.includes(userId)) {
       allocation[roleKey] = filled.filter(id => id !== userId);
+
+      // Remove from linked role too
+      if (roleConfig.linkedRole) {
+        allocation[roleConfig.linkedRole] = (allocation[roleConfig.linkedRole] || []).filter(id => id !== userId);
+      }
+
       if (queue.length > 0) {
         const promoted = queue.shift();
         allocation[roleKey].push(promoted);
         allocation.queues[roleKey] = queue;
+        // Auto-fill linked role for promoted user
+        if (roleConfig.linkedRole) {
+          allocation[roleConfig.linkedRole] = [promoted];
+        }
       }
       await allocation.save();
       await refreshMessage(interaction, allocation);
@@ -65,9 +75,19 @@ module.exports = {
     // Join filled or queue
     if (filled.length < roleConfig.max) {
       allocation[roleKey].push(userId);
+
+      // Auto-fill linked role (e.g. Flight Dispatcher when joining Operations Controller)
+      if (roleConfig.linkedRole) {
+        const linked = allocation[roleConfig.linkedRole] || [];
+        if (!linked.includes(userId)) {
+          allocation[roleConfig.linkedRole] = [userId];
+        }
+      }
+
       await allocation.save();
       await refreshMessage(interaction, allocation);
-      return interaction.followUp({ content: `✅ You joined **${roleConfig.label}**.`, ephemeral: true });
+      const linkedMsg = roleConfig.linkedRole ? ` You have also been assigned as **Flight Dispatcher**.` : '';
+      return interaction.followUp({ content: `✅ You joined **${roleConfig.label}**.${linkedMsg}`, ephemeral: true });
     } else {
       allocation.queues[roleKey].push(userId);
       await allocation.save();
