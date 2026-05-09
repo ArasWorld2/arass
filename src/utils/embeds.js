@@ -12,7 +12,8 @@ const ROLES = [
   { key: 'groundHandling',      label: 'Tarmac Manager',        emoji: '🔵',   max: 1 },
   { key: 'tarmacSupervisor',    label: 'Tarmac Agent',          emoji: '⚠️',   max: 3 },
   { key: 'dispatchCoordinator', label: 'Customer Assistance',   emoji: '🎯',   max: 3 },
-  { key: 'flightDispatcher',    label: 'Flight Dispatcher',     emoji: '📡',   max: 1 },
+  { key: 'dispatchSupervisor',  label: 'Operations Controller', emoji: '🎖️',   max: 1, linkedRole: 'flightDispatcher' },
+  { key: 'flightDispatcher',    label: 'Flight Dispatcher',     emoji: '📡',   max: 1, autoFilled: true },
 ];
 
 function getRoleConfig(key) {
@@ -25,7 +26,7 @@ function buildMainEmbed(flight, allocation) {
     const count = `(${filled.length}/${role.max})`;
     const members = filled.length > 0 ? ' ' + filled.map(id => `<@${id}>`).join(', ') : '';
     return `${role.emoji} **${role.label}** ${count}${members}`;
-    }).join('\n\n');
+  }).join('\n');
 
   return new EmbedBuilder()
     .setColor(WIZZ_PURPLE)
@@ -33,18 +34,18 @@ function buildMainEmbed(flight, allocation) {
     .addFields(
       {
         name: '🛫  DEPARTURE DUTY',
-        value: `__**${flight.number}**__`,
+        value: `**${flight.date || 'Today'}  ✦  ${flight.number}**`,
       },
       {
         name: '\u200B',
-        value: `A new ✈️ **Wizz Air** flight briefing has been posted. In order to allocate, interact with the dropdown below.`,
+        value: `Regard the newest ✈️ **Wizz Air** duty briefing. **Ensure to** acknowledge all **information** contained within this message. **Be reminded** this is subject to alter. In order to allocate, interact with the dropdown below.`,
       },
       {
         name: '\u200B',
         value: [
-          `🌍 **Route:** ${flight.from}  →  ${flight.to}`,
-          `✈️ **Plane:** ${flight.aircraft}`,
-          `📡 **Flight Dispatcher:** ${allocation && allocation.flightDispatcher && allocation.flightDispatcher[0] ? `<@${allocation.flightDispatcher[0]}>` : 'TBA'}`,
+          `🌍 **${flight.from}  →  ${flight.to}**`,
+          `✈️  ${flight.aircraft}`,
+          `👤  Operations Controller: ${flight.controller ? `<@${flight.controller}>` : 'TBA'}`,
           `🕐  Duty Report: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
         ].join('\n'),
       },

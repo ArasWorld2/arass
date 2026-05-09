@@ -1,6 +1,17 @@
 const Allocation = require('../models/Allocation');
 const { getRoleConfig, buildMainEmbed, buildButtons } = require('../utils/embeds');
 
+async function sendLog(client, guildId, channelId, messageId, { action, userId, role, flightNumber }) {
+  const logChannelId = process.env.LOG_CHANNEL_ID;
+  if (!logChannelId) return;
+  try {
+    const channel = await client.channels.fetch(logChannelId);
+    await channel.send(`${action} | **Flight ${flightNumber}** | **${role}** | User: <@${userId}> | [Jump](https://discord.com/channels/${guildId}/${channelId}/${messageId})`);
+  } catch (err) {
+    console.warn('Could not send log:', err.message);
+  }
+}
+
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
@@ -44,23 +55,18 @@ module.exports = {
     // Toggle off if already in filled
     if (filled.includes(userId)) {
       allocation[roleKey] = filled.filter(id => id !== userId);
-
-      // Remove from linked role too
       if (roleConfig.linkedRole) {
         allocation[roleConfig.linkedRole] = (allocation[roleConfig.linkedRole] || []).filter(id => id !== userId);
       }
-
       if (queue.length > 0) {
         const promoted = queue.shift();
         allocation[roleKey].push(promoted);
         allocation.queues[roleKey] = queue;
-        // Auto-fill linked role for promoted user
-        if (roleConfig.linkedRole) {
-          allocation[roleConfig.linkedRole] = [promoted];
-        }
+        if (roleConfig.linkedRole) allocation[roleConfig.linkedRole] = [promoted];
       }
       await allocation.save();
       await refreshMessage(interaction, allocation);
+      await sendLog(client, interaction.guildId, allocation.channelId, messageId, { action: '🔴 Left', userId, role: roleConfig.label, flightNumber: allocation.flight.number });
       return interaction.followUp({ content: `✅ You left **${roleConfig.label}**.`, ephemeral: true });
     }
 
@@ -69,29 +75,27 @@ module.exports = {
       allocation.queues[roleKey] = queue.filter(id => id !== userId);
       await allocation.save();
       await refreshMessage(interaction, allocation);
+      await sendLog(client, interaction.guildId, allocation.channelId, messageId, { action: '🟡 Left queue', userId, role: roleConfig.label, flightNumber: allocation.flight.number });
       return interaction.followUp({ content: `✅ You removed yourself from the **${roleConfig.label}** queue.`, ephemeral: true });
     }
 
     // Join filled or queue
     if (filled.length < roleConfig.max) {
       allocation[roleKey].push(userId);
-
-      // Auto-fill linked role (e.g. Flight Dispatcher when joining Operations Controller)
       if (roleConfig.linkedRole) {
         const linked = allocation[roleConfig.linkedRole] || [];
-        if (!linked.includes(userId)) {
-          allocation[roleConfig.linkedRole] = [userId];
-        }
+        if (!linked.includes(userId)) allocation[roleConfig.linkedRole] = [userId];
       }
-
       await allocation.save();
       await refreshMessage(interaction, allocation);
+      await sendLog(client, interaction.guildId, allocation.channelId, messageId, { action: '🟢 Joined', userId, role: roleConfig.label, flightNumber: allocation.flight.number });
       const linkedMsg = roleConfig.linkedRole ? ` You have also been assigned as **Flight Dispatcher**.` : '';
       return interaction.followUp({ content: `✅ You joined **${roleConfig.label}**.${linkedMsg}`, ephemeral: true });
     } else {
       allocation.queues[roleKey].push(userId);
       await allocation.save();
       await refreshMessage(interaction, allocation);
+      await sendLog(client, interaction.guildId, allocation.channelId, messageId, { action: '🟡 Joined queue', userId, role: roleConfig.label, flightNumber: allocation.flight.number });
       return interaction.followUp({ content: `⏳ **${roleConfig.label}** is full. You're in the queue (#${allocation.queues[roleKey].length}).`, ephemeral: true });
     }
   },
