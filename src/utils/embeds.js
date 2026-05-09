@@ -12,7 +12,6 @@ const ROLES = [
   { key: 'groundHandling',      label: 'Tarmac Manager',        emoji: '🔵',   max: 1 },
   { key: 'tarmacSupervisor',    label: 'Tarmac Agent',          emoji: '⚠️',   max: 3 },
   { key: 'dispatchCoordinator', label: 'Customer Assistance',   emoji: '🎯',   max: 3 },
-  { key: 'dispatchSupervisor',  label: 'Operations Controller', emoji: '🎖️',   max: 1, linkedRole: 'flightDispatcher' },
 ];
 
 function getRoleConfig(key) {
@@ -44,9 +43,9 @@ function buildMainEmbed(flight, allocation) {
         value: [
           `🌍 **Route:** ${flight.from}  →  ${flight.to}`,
           `✈️ **Plane:** ${flight.aircraft}`,
-          `📡 **Flight Dispatcher:** TBA`,
+          `📡 **Flight Dispatcher:** ${allocation && allocation.dispatchSupervisor && allocation.dispatchSupervisor[0] ? `<@${allocation.dispatchSupervisor[0]}>` : 'TBA'}`,
           `🕐  Duty Report: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
-        ].join('\n'),
+        ].join('\n\n'),
       },
       {
         name: '📋  ASSIGNMENT SELECTION',
