@@ -74,10 +74,10 @@ function buildButtons() {
     const row = new ActionRowBuilder();
     for (const role of chunk) {
       row.addComponents(
-      new ButtonBuilder()
-     .setCustomId(`join_${role.key}`)
-     .setLabel(role.emoji)
-     .setStyle(ButtonStyle.Primary)
+        new ButtonBuilder()
+          .setCustomId(`join_${role.key}`)
+          .setLabel(role.emoji)
+          .setStyle(ButtonStyle.Primary)
       );
     }
     rows.push(row);

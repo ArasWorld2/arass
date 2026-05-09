@@ -8,6 +8,7 @@ const allocationSchema = new mongoose.Schema({
     from: String,
     to: String,
     staffTime: String,
+    staffTimeUtc: String,
     passengerTime: String,
     aircraft: String,
     date: String,
