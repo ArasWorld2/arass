@@ -45,7 +45,6 @@ function buildMainEmbed(flight, allocation) {
         value: [
           `<:WP_europe:1392562534053183519> **Route:** ${flight.from}  →  ${flight.to}`,
           ` **Plane:** ${flight.aircraft}`,
-          `<:WP_person:1392562551597961346> **Flight Dispatcher:** ${allocation && allocation.dispatchSupervisor && allocation.dispatchSupervisor[0] ? `<@${allocation.dispatchSupervisor[0]}>` : 'TBA'}`,
           `<:WP_clock:1392562574935195739>   Personnel Join Time: ${flight.staffTime}  |  Passenger Joining Time: ${flight.passengerTime}`,
         ].join('\n\n'),
       },
