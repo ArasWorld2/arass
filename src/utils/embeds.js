@@ -13,7 +13,6 @@ const ROLES = [
   { key: 'tarmacSupervisor',    label: 'Tarmac Agent',          emoji: '⚠️',   max: 3 },
   { key: 'dispatchCoordinator', label: 'Customer Assistance',   emoji: '🎯',   max: 3 },
   { key: 'dispatchSupervisor',  label: 'Operations Controller', emoji: '🎖️',   max: 1, linkedRole: 'flightDispatcher' },
-  { key: 'flightDispatcher',    label: 'Flight Dispatcher',     emoji: '📡',   max: 1, autoFilled: true },
 ];
 
 function getRoleConfig(key) {
@@ -34,7 +33,7 @@ function buildMainEmbed(flight, allocation) {
     .addFields(
       {
         name: '🛫  DEPARTURE DUTY',
-        value: `**${flight.date || 'Today'}  ✦  ${flight.number}**`,
+        value: `__**${flight.number}**__`,
       },
       {
         name: '\u200B',
@@ -43,9 +42,9 @@ function buildMainEmbed(flight, allocation) {
       {
         name: '\u200B',
         value: [
-          `🌍 **${flight.from}  →  ${flight.to}**`,
-          `✈️  ${flight.aircraft}`,
-          `👤  Operations Controller: ${flight.controller ? `<@${flight.controller}>` : 'TBA'}`,
+          `🌍 **Route:** ${flight.from}  →  ${flight.to}`,
+          `✈️ **Plane:** ${flight.aircraft}`,
+          `📡 **Flight Dispatcher:** TBA`,
           `🕐  Duty Report: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
         ].join('\n'),
       },
