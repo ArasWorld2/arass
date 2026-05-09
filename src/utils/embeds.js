@@ -27,6 +27,7 @@ function buildFlightEmbed(flight) {
       { name: 'Staff Joining',     value: flight.staffTime },
       { name: 'Passenger Joining', value: flight.passengerTime },
       { name: 'Equipment',         value: flight.aircraft },
+      { name: 'Gate',         value: flight.gate },
     )
     .setColor(0x5865F2)
     .setTimestamp();
