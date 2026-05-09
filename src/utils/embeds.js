@@ -32,7 +32,7 @@ function buildMainEmbed(flight, allocation) {
     .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
     .addFields(
       {
-        name: '🛫  DEPARTURE DUTY',
+        name: '🛫  Flight Briefing',
         value: `__**${flight.number}**__`,
       },
       {
@@ -49,7 +49,7 @@ function buildMainEmbed(flight, allocation) {
         ].join('\n\n'),
       },
       {
-        name: '📋  ASSIGNMENT SELECTION',
+        name: '📋  Flight Information',
         value: roleLines,
       }
     )
