@@ -2,13 +2,13 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 
 // Role definitions: key, label, emoji, max slots
 const ROLES = [
-  { key: 'dispatchCoordinator', label: 'Dispatch Coordinator', emoji: '🎯', max: 1 },
-  { key: 'dispatchSupervisor',  label: 'Dispatch Supervisor',  emoji: '🎯', max: 2 },
+  { key: 'dispatchCoordinator', label: 'Flight Dispatcher', emoji: '🎯', max: 1 },
+  { key: 'dispatchSupervisor',  label: 'Flight Supervisor',  emoji: '🎯', max: 2 },
   { key: 'captain',             label: 'Captain',              emoji: '🛫', max: 1 },
   { key: 'firstOfficer',        label: 'First Officer',        emoji: '✈️', max: 1 },
-  { key: 'cabinCrew',           label: 'Cabin Crew',           emoji: '👤', max: 6 },
-  { key: 'groundHandling',      label: 'Ground Handling',      emoji: '⚠️', max: 4 },
-  { key: 'purser',              label: 'Purser',               emoji: '🎫', max: 1 },
+  { key: 'cabinCrew',           label: 'Cabin Crew',           emoji: '👤', max: 4 },
+  { key: 'groundHandling',      label: 'Ground Crew',      emoji: '⚠️', max: 3 },
+  { key: 'purser',              label: 'Senior Cabin Attendant',               emoji: '🎫', max: 1 },
   { key: 'tarmacSupervisor',    label: 'Tarmac Supervisor',    emoji: '🔵', max: 1 },
   { key: 'customerService',    label: 'Customer Service',    emoji: '🔵', max: 1 },
 ];
