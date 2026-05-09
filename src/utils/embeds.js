@@ -1,89 +1,74 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 
 // Role definitions: key, label, emoji, max slots
 const ROLES = [
-  { key: 'dispatchCoordinator', label: 'Flight Dispatcher', emoji: '🎯', max: 1 },
-  { key: 'dispatchSupervisor',  label: 'Flight Supervisor',  emoji: '🎯', max: 2 },
-  { key: 'captain',             label: 'Captain',              emoji: '🛫', max: 1 },
-  { key: 'firstOfficer',        label: 'First Officer',        emoji: '✈️', max: 1 },
-  { key: 'cabinCrew',           label: 'Cabin Crew',           emoji: '👤', max: 4 },
-  { key: 'groundHandling',      label: 'Ground Crew',      emoji: '⚠️', max: 3 },
-  { key: 'purser',              label: 'Senior Cabin Attendant',               emoji: '🎫', max: 1 },
-  { key: 'tarmacSupervisor',    label: 'Tarmac Supervisor',    emoji: '🔵', max: 1 },
-  { key: 'customerService',    label: 'Customer Service',    emoji: '🔵', max: 1 },
+  { key: 'captain',             label: 'Captain',               emoji: '🧑‍✈️', max: 1 },
+  { key: 'firstOfficer',        label: 'First Officer',         emoji: '✈️',   max: 1 },
+  { key: 'purser',              label: 'Cabin Purser',          emoji: '🎫',   max: 1 },
+  { key: 'cabinCrew',           label: 'Cabin Crew',            emoji: '👤',   max: 4 },
+  { key: 'groundHandling',      label: 'Tarmac Manager',        emoji: '🔵',   max: 1 },
+  { key: 'tarmacSupervisor',    label: 'Tarmac Agent',          emoji: '⚠️',   max: 3 },
+  { key: 'dispatchCoordinator', label: 'Customer Assistance',   emoji: '🎯',   max: 3 },
+  { key: 'dispatchSupervisor',  label: 'Operations Controller', emoji: '🎖️',   max: 1 },
 ];
 
 function getRoleConfig(key) {
   return ROLES.find(r => r.key === key);
 }
 
-function buildFlightEmbed(flight) {
+function buildMainEmbed(flight, allocation) {
+  const roleLines = ROLES.map(role => {
+    const filled = (allocation && allocation[role.key]) || [];
+    const count = `(${filled.length}/${role.max})`;
+    const members = filled.length > 0 ? ' ' + filled.map(id => `<@${id}>`).join(', ') : '';
+    return `${role.emoji} **${role.label}** ${count}${members}`;
+  }).join('\n');
+
   return new EmbedBuilder()
-    .setTitle(`✈️  ${flight.number}`)
+    .setColor(0x1a1a2e)
     .addFields(
-      { name: 'Departure', value: flight.from,          inline: true },
-      { name: 'Arrival',   value: flight.to,            inline: true },
-      { name: '\u200B',    value: '\u200B',             inline: true },
-      { name: 'Staff Joining',     value: flight.staffTime },
-      { name: 'Passenger Joining', value: flight.passengerTime },
-      { name: 'Equipment',         value: flight.aircraft },
-    )
-    .setColor(0x5865F2)
-    .setTimestamp();
+      {
+        name: '**DEPARTURE DUTY**\nجدول المغادرة',
+        value: `${flight.date || 'Today'} ✦ ${flight.number}`,
+      },
+      {
+        name: '\u200B',
+        value: `Regard the newest ✈️ **${flight.airline || 'Flight Operations'}** duty briefing. **Ensure to** acknowledge all **information** contained within this message. **Be reminded** this is subject to alter. In order to allocate, interact with the message additions below.`,
+      },
+      {
+        name: '\u200B',
+        value: [
+          `🌍 **${flight.from} - ${flight.to}**`,
+          `✈️ ${flight.aircraft}`,
+          `👤 Operations Controller: ${flight.controller ? `<@${flight.controller}>` : 'TBA'}`,
+          `🔵 Duty Report: ${flight.staffTime} | Passenger Report: ${flight.passengerTime}`,
+        ].join('\n'),
+      },
+      {
+        name: '**ASSIGNMENT SELECTION**\nاختيار المهمة',
+        value: roleLines,
+      }
+    );
 }
 
-function buildAllocationEmbed(allocation) {
-  const fields = [];
+function buildDropdown() {
+  const options = ROLES.map(role =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(role.label)
+      .setValue(`join_${role.key}`)
+      .setDescription(`Join or leave ${role.label} (max ${role.max})`)
+  );
 
-  for (const role of ROLES) {
-    const filled  = allocation[role.key] || [];
-    const queue   = (allocation.queues && allocation.queues[role.key]) || [];
-    const count   = `(${filled.length}/${role.max})`;
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('role_select')
+    .setPlaceholder('Select a role to allocate or unallocate yourself')
+    .addOptions(options);
 
-    const filledText = filled.length > 0
-      ? filled.map(id => `<@${id}>`).join('\n')
-      : 'N/A';
-
-    const queueText = queue.length > 0
-      ? `Queue (${queue.length}): ${queue.map(id => `<@${id}>`).join(', ')}`
-      : 'Queue (0)';
-
-    fields.push({
-      name: `${role.emoji}  ${role.label} ${count}`,
-      value: `${filledText}\n*${queueText}*`,
-      inline: true,
-    });
-
-    // Add blank field every 2 for side-by-side layout
-    if (fields.length % 3 === 2) {
-      fields.push({ name: '\u200B', value: '\u200B', inline: true });
-    }
-  }
-
-  return new EmbedBuilder()
-    .setTitle('📋  Allocation Sheet')
-    .addFields(fields)
-    .setColor(0x2B2D31)
-    .setFooter({ text: 'Click a button below to join a role' });
+  return new ActionRowBuilder().addComponents(select);
 }
 
 function buildButtons() {
-  const rows = [];
-  // Split 8 buttons into 2 rows of 4
-  const chunks = [ROLES.slice(0, 4), ROLES.slice(4)];
-  for (const chunk of chunks) {
-    const row = new ActionRowBuilder();
-    for (const role of chunk) {
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`join_${role.key}`)
-          .setLabel(role.emoji)
-          .setStyle(ButtonStyle.Primary)
-      );
-    }
-    rows.push(row);
-  }
-  return rows;
+  return [buildDropdown()];
 }
 
-module.exports = { ROLES, getRoleConfig, buildFlightEmbed, buildAllocationEmbed, buildButtons };
+module.exports = { ROLES, getRoleConfig, buildFlightEmbed: buildMainEmbed, buildAllocationEmbed: buildMainEmbed, buildMainEmbed, buildButtons, buildDropdown };
