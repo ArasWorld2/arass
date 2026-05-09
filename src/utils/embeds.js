@@ -33,7 +33,7 @@ function buildMainEmbed(flight, allocation) {
     .addFields(
       {
         name: '🛫  DEPARTURE DUTY',
-        value: `**${flight.number}**`,
+        value: `# ${flight.number}`,
       },
       {
         name: '\u200B',
