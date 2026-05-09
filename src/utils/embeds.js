@@ -41,7 +41,7 @@ function buildMainEmbed(flight, allocation) {
         value: `Regard the newest ✈️ **Wizz Air** duty briefing. **Ensure to** acknowledge all **information** contained within this message. **Be reminded** this is subject to alter. In order to allocate, interact with the dropdown below.`,
       },
       {
-        name: '\u200B',
+        name: '  ',
         value: [
           `<:WP_europe:1392562534053183519> **Route:** ${flight.from}  →  ${flight.to}`,
           ` **Plane:** ${flight.aircraft}`,
@@ -49,7 +49,7 @@ function buildMainEmbed(flight, allocation) {
         ].join('\n'),
       },
       {
-        name: 'Flight Information',
+        name: '\u200B',
         value: roleLines,
       }
     )
