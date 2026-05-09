@@ -42,7 +42,7 @@ function buildMainEmbed(flight, allocation) {
       {
         name: '\u200B',
         value: [
-          `🌍 **${flight.from}  →  ${flight.to}**`,
+          `🌍 **Route:** ${flight.from}  →  ${flight.to}`,
           `✈️ **Plane:** ${flight.aircraft}`,
           `📡 **Flight Dispatcher:** ${allocation && allocation.flightDispatcher && allocation.flightDispatcher[0] ? `<@${allocation.flightDispatcher[0]}>` : 'TBA'}`,
           `🕐  Duty Report: ${flight.staffTime}  |  Passenger Report: ${flight.passengerTime}`,
