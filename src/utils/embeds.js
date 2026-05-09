@@ -49,7 +49,7 @@ function buildMainEmbed(flight, allocation) {
         ].join('\n'),
       },
       {
-        name: '\u200B',
+        name: '  ',
         value: roleLines,
       }
     )
