@@ -9,7 +9,8 @@ const ROLES = [
   { key: 'cabinCrew',           label: 'Cabin Crew',           emoji: '👤', max: 6 },
   { key: 'groundHandling',      label: 'Ground Handling',      emoji: '⚠️', max: 4 },
   { key: 'purser',              label: 'Purser',               emoji: '🎫', max: 1 },
-  { key: 'tarmacSupervisor',    label: 'Tarmac Supervisor',    emoji: '🔵', max: 1 },
+  { key: 'tarmacSupervisor',    label: 'Tarmac Supervisor',    emoji: '🔵', max: 1 }
+  { key: 'customerService',    label: 'Customer Service',    emoji: '🔵', max: 1 },
 ];
 
 function getRoleConfig(key) {
