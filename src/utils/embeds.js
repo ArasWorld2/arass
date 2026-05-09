@@ -12,6 +12,7 @@ const ROLES = [
   { key: 'groundHandling',      label: 'Tarmac Manager',        emoji: '🔵',   max: 1 },
   { key: 'tarmacSupervisor',    label: 'Tarmac Agent',          emoji: '⚠️',   max: 3 },
   { key: 'dispatchCoordinator', label: 'Customer Assistance',   emoji: '🎯',   max: 3 },
+  { key: 'dispatchSupervisor', label: 'Flight Dispatcher', emoji: '📡', max: 1 },
 ];
 
 function getRoleConfig(key) {
