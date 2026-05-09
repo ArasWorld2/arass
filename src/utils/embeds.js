@@ -34,7 +34,7 @@ function buildMainEmbed(flight, allocation) {
     .addFields(
       {
         name: '🛫  Flight Briefing',
-        value: `__**${flight.number}**__`,
+        value: `__**${flight.number}**__ • ${flight.date}`,
       },
       {
         name: '\u200B',
@@ -50,7 +50,7 @@ function buildMainEmbed(flight, allocation) {
         ].join('\n\n'),
       },
       {
-        name: ':WP_file:   Flight Information',
+        name: 'Flight Information',
         value: roleLines,
       }
     )
