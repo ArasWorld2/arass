@@ -1,0 +1,17 @@
+{
+  "name": "flight-allocation-bot",
+  "version": "1.0.0",
+  "description": "Discord flight crew allocation bot",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "register": "node scripts/register-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5",
+    "mongodb": "^7.2.0",
+    "mongoose": "^8.4.1"
+  }
+}
