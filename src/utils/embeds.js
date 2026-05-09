@@ -25,7 +25,7 @@ function buildMainEmbed(flight, allocation) {
     const count = `(${filled.length}/${role.max})`;
     const members = filled.length > 0 ? ' ' + filled.map(id => `<@${id}>`).join(', ') : '';
     return `${role.emoji} **${role.label}** ${count}${members}`;
-  }).join('\n\n'),
+  }).join('\n\n');
 
   return new EmbedBuilder()
     .setColor(WIZZ_PURPLE)
