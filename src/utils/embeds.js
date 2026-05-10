@@ -27,7 +27,7 @@ function buildMainEmbed(flight, allocation) {
   `🕐 Personnel Join Time: ${flight.staffTime} | Passenger Joining Time: ${flight.passengerTime}`,
 ].join('\n');
 
-const roleLines = infoLines + '\n\u200B\n' + ROLES.map(role => {
+const roleLines = infoLines + '\n' + ROLES.map(role => {
     const filled = (allocation && allocation[role.key]) || [];
     const count = `(${filled.length}/${role.max})`;
     const members = filled.length > 0 ? ' ' + filled.map(id => `<@${id}>`).join(', ') : '';
