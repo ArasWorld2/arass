@@ -21,13 +21,16 @@ function getRoleConfig(key) {
 }
 
 function buildMainEmbed(flight, allocation) {
-  const infoLines = [
+const infoLines = [
   `🌍 **Route:** ${flight.from} → ${flight.to}`,
   `✈️ **Plane:** ${flight.aircraft}`,
-  `🕐 Personnel Join Time: ${flight.staffTime} | Passenger Joining Time: ${flight.passengerTime}`,
+  `🚪 **Gate:** ${flight.gate}`,
+  `🕐 **Personnel Join Time:** ${flight.staffTime} | **Passenger Joining Time:** ${flight.passengerTime}`,
+  `🛫 **Boarding Time:** ${flight.boardingTime}`,
+  `🔒 **Operations Closure:** ${flight.operationsClosure}`,
 ].join('\n');
 
-const roleLines = infoLines + '\n**✈️ Flight Roles**\n' + ROLES.map(role => {
+const roleLines = infoLines + '\n**Flight Roles**\n' + ROLES.map(role => {
     const filled = (allocation && allocation[role.key]) || [];
     const count = `(${filled.length}/${role.max})`;
     const members = filled.length > 0 ? ' ' + filled.map(id => `<@${id}>`).join(', ') : '';
