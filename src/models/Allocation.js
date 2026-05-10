@@ -23,6 +23,7 @@ const allocationSchema = new mongoose.Schema({
   groundHandling:      { type: [String], default: [] },
   purser:              { type: [String], default: [] },
   tarmacSupervisor:    { type: [String], default: [] },
+  flightSupervisor: { type: [String], default: [] },
   // Queues for full roles
   queues: {
     dispatchCoordinator: { type: [String], default: [] },
@@ -33,6 +34,7 @@ const allocationSchema = new mongoose.Schema({
     groundHandling:      { type: [String], default: [] },
     purser:              { type: [String], default: [] },
     tarmacSupervisor:    { type: [String], default: [] },
+    flightSupervisor: { type: [String], default: [] },
   },
 }, { timestamps: true });
 
