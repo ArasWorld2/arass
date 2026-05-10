@@ -12,6 +12,9 @@ const allocationSchema = new mongoose.Schema({
     passengerTime: String,
     aircraft: String,
     date: String,
+    gate: String,
+    boardingTime: String,
+    operationsClosure: String,
   },
   // Each role stores array of user IDs
   dispatchCoordinator: { type: [String], default: [] },
