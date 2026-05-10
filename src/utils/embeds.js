@@ -6,7 +6,7 @@ const WIZZ_PURPLE = 0xC6007E;
 // Role definitions
 const ROLES = [
   { key: 'dispatchSupervisor', label: 'Flight Dispatcher', emoji: '<:WP_person:1392562551597961346>', max: 1 },
-  { key: 'dispatchSuperviso', label: 'Flight Supervisor', emoji: '<:WP_person:1392562551597961346>', max: 1 },
+  { key: 'flightSupervisor', label: 'Flight Supervisor', emoji: '<:WP_person:1392562551597961346>', max: 1 },
   { key: 'captain',             label: 'Captain',               emoji: '<:WP_woman:1392562577405509783>', max: 1 },
   { key: 'firstOfficer',        label: 'First Officer',         emoji: '<:WP_link:1392562549144293437>',   max: 1 },
   { key: 'purser',              label: 'Senior Cabin Attendant',          emoji: '<:WP_chat:1392562630991810841>',   max: 1 },
@@ -50,7 +50,7 @@ const roleLines = infoLines + '\n**Flight Roles**\n' + ROLES.map(role => {
         value: `Regard the newest ✈️ **Wizz Air** duty briefing. **Ensure to** acknowledge all **information** contained within this message. **Be reminded** this is subject to alter. In order to allocate, interact with the dropdown below.`,
       },
       {
-        name: '',
+       name: '\u200B',
         value: roleLines,
       }
     )
