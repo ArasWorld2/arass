@@ -45,14 +45,14 @@ function buildMainEmbed(flight, allocation) {
       },
       {
         name: '\u200B',
-        value: `Regard the newest ✈️ **Wizz Air** duty briefing. **Ensure to** acknowledge all **information** contained within this message. **Be reminded** this is subject to alter. In order to allocate, interact with the dropdown below.`,
+        value: `A new **Wizz Air** Briefing has been published. **Ensure to** read all **information** contained within this message. **Be reminded** flight info is subject to alter. In order to allocate, interact with the dropdown below.`,
       },
       {
         name: '\u200B',
         value: infoLines + '\n**Flight Roles**\n' + roleLines,
       }
     )
-    .setFooter({ text: 'Wizz Air Virtual Operations • Select a role below to sign up' })
+    .setFooter({ text: 'Wizz Air Flight Operations • Select a role below to allocate' })
     .setTimestamp();
 }
 

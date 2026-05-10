@@ -15,8 +15,9 @@ module.exports = {
     .addStringOption(o => o.setName('passenger_time').setDescription('Passenger report time, e.g. 20:00').setRequired(true))
     .addStringOption(o => o.setName('aircraft').setDescription('Aircraft type, e.g. Airbus A321neo').setRequired(true))
     .addStringOption(o => o.setName('date').setDescription('Flight date, e.g. 10 May 2026').setRequired(false))
-    .addStringOption(o => o.setName('staff_time_utc').setDescription('Actual staff time for reminders, e.g. 2026-05-10 19:40').setRequired(false))
-    .addIntegerOption(o => o.setName('reminder_minutes').setDescription('Minutes before staff time to DM reminder (default: 15)').setRequired(false)),
+    .addStringOption(o => o.setName('gate').setDescription('Departure gate, e.g. B12').setRequired(false))
+    .addStringOption(o => o.setName('boarding_time').setDescription('Boarding time, e.g. 10:00').setRequired(false))
+    .addStringOption(o => o.setName('operations_closure').setDescription('Operations closure time, e.g. 10:15').setRequired(false)),
 
   async execute(interaction) {
     if (!await checkRole(interaction)) return;
