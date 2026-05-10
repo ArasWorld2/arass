@@ -24,10 +24,10 @@ function buildMainEmbed(flight, allocation) {
 const infoLines = [
   `🌍 **Route:** ${flight.from} → ${flight.to}`,
   `✈️ **Plane:** ${flight.aircraft}`,
-  `🚪 **Gate:** ${flight.gate}`,
+  `🚪 **Gate:** ${flight.gate || 'TBA'}`,
   `🕐 **Personnel Join Time:** ${flight.staffTime} | **Passenger Joining Time:** ${flight.passengerTime}`,
-  `🛫 **Boarding Time:** ${flight.boardingTime}`,
-  `🔒 **Operations Closure:** ${flight.operationsClosure}`,
+  `🛫 **Boarding Time:** ${flight.boardingTime || 'TBA'}`,
+  `🔒 **Operations Closure:** ${flight.operationsClosure || 'TBA'}`,
 ].join('\n');
 
 const roleLines = infoLines + '\n**Flight Roles**\n' + ROLES.map(role => {
@@ -43,7 +43,7 @@ const roleLines = infoLines + '\n**Flight Roles**\n' + ROLES.map(role => {
     .addFields(
       {
         name: '🛫  Flight Briefing',
-        value: `__**${flight.number}**__ • ${flight.date}`,
+        value: `__**${flight.number}**__ • ${flight.date || ''}`,
       },
       {
         name: '\u200B',
