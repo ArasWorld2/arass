@@ -21,7 +21,13 @@ function getRoleConfig(key) {
 }
 
 function buildMainEmbed(flight, allocation) {
-  const roleLines = ROLES.map(role => {
+  const infoLines = [
+  `🌍 **Route:** ${flight.from} → ${flight.to}`,
+  `✈️ **Plane:** ${flight.aircraft}`,
+  `🕐 Personnel Join Time: ${flight.staffTime} | Passenger Joining Time: ${flight.passengerTime}`,
+].join('\n');
+
+const roleLines = infoLines + '\n\u200B\n' + ROLES.map(role => {
     const filled = (allocation && allocation[role.key]) || [];
     const count = `(${filled.length}/${role.max})`;
     const members = filled.length > 0 ? ' ' + filled.map(id => `<@${id}>`).join(', ') : '';
@@ -39,14 +45,6 @@ function buildMainEmbed(flight, allocation) {
       {
         name: '\u200B',
         value: `Regard the newest ✈️ **Wizz Air** duty briefing. **Ensure to** acknowledge all **information** contained within this message. **Be reminded** this is subject to alter. In order to allocate, interact with the dropdown below.`,
-      },
-      {
-        name: '',
-        value: [
-          `<:WP_europe:1392562534053183519> **Route:** ${flight.from}  →  ${flight.to}`,
-          ` **Plane:** ${flight.aircraft}`,
-          `<:WP_clock:1392562574935195739>   Personnel Join Time: ${flight.staffTime}  |  Passenger Joining Time: ${flight.passengerTime}`,
-        ].join('\n'),
       },
       {
         name: '',
