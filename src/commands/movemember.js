@@ -1,3 +1,4 @@
+const { checkRole } = require('../utils/checkRole');
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const Allocation = require('../models/Allocation');
 const { getRoleConfig, buildMainEmbed, buildButtons, ROLES } = require('../utils/embeds');
@@ -21,6 +22,7 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
   async execute(interaction) {
+    if (!await checkRole(interaction)) return;
     await interaction.deferReply({ ephemeral: true });
 
     const messageId  = interaction.options.getString('message_id');
