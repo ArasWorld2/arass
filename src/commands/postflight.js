@@ -30,8 +30,10 @@ module.exports = {
       staffTime:     interaction.options.getString('staff_time'),
       passengerTime: interaction.options.getString('passenger_time'),
       aircraft:      interaction.options.getString('aircraft'),
-      date:          interaction.options.getString('date') || new Date().toDateString(),
-      staffTimeUtc:  interaction.options.getString('staff_time_utc') || null,
+      date:              interaction.options.getString('date') || new Date().toDateString(),
+      gate:              interaction.options.getString('gate') || 'TBA',
+      boardingTime:      interaction.options.getString('boarding_time') || 'TBA',
+      operationsClosure: interaction.options.getString('operations_closure') || 'TBA',
     };
 
     const reminderMinutes = interaction.options.getInteger('reminder_minutes') ?? 15;
