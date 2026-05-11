@@ -6,7 +6,7 @@ async function sendLog(client, guildId, channelId, messageId, { action, userId, 
   if (!logChannelId) return;
   try {
     const channel = await client.channels.fetch(logChannelId);
-    await channel.send(`${action} | **Flight ${flightNumber}** | **${role}** | User: <@${userId}> | [Jump](https://discord.com/channels/${guildId}/${channelId}/${messageId})`);
+    await channel.send(`✈️ **${flightNumber}** • ${role}\n👤 <@${userId}> — ${action}\n🔗 [View Flight](https://discord.com/channels/${guildId}/${channelId}/${messageId})`);
   } catch (err) {
     console.warn('Could not send log:', err.message);
   }
