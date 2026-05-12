@@ -3,15 +3,15 @@ const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMen
 const WIZZ_PURPLE = 0xC6007E;
 
 const ROLES = [
-  { key: 'dispatchSupervisor',  label: 'Flight Dispatcher',     emoji: '<:WP_person:1392562551597961346>', max: 1 },
-  { key: 'flightSupervisor',    label: 'Flight Supervisor',      emoji: '<:WP_person:1392562551597961346>', max: 1 },
-  { key: 'captain',             label: 'Captain',                emoji: '<:WP_woman:1392562577405509783>',  max: 1 },
-  { key: 'firstOfficer',        label: 'First Officer',          emoji: '<:WP_link:1392562549144293437>',   max: 1 },
-  { key: 'purser',              label: 'Senior Cabin Attendant', emoji: '<:WP_chat:1392562630991810841>',   max: 1 },
-  { key: 'cabinCrew',           label: 'Cabin Crew',             emoji: '<:WP_people:1392562569818013870>', max: 4 },
-  { key: 'groundHandling',      label: 'Turnaround Manager',     emoji: '<:WP_clock:1392562574935195739>',  max: 1 },
-  { key: 'tarmacSupervisor',    label: 'Ground Crew',            emoji: '<:WP_hammer:1392562571663642755>', max: 3 },
-  { key: 'dispatchCoordinator', label: 'Customer Service',       emoji: '<:WP_link:1392562549144293437>',   max: 3 },
+  { key: 'dispatchSupervisor',  label: 'Flight Dispatcher',     emoji: '<:WP_person:1503497022211227850>', max: 1 },
+  { key: 'flightSupervisor',    label: 'Flight Supervisor',      emoji: '<:WP_person:1503497022211227850>', max: 2 },
+  { key: 'captain',             label: 'Captain',                emoji: '<:WP_man:1503497042071257249>',  max: 1 },
+  { key: 'firstOfficer',        label: 'First Officer',          emoji: '<:WP_link:1503497040406253769>',   max: 1 },
+  { key: 'purser',              label: 'Senior Cabin Attendant', emoji: '<:WP_telephone:1503497077588496614>',   max: 1 },
+  { key: 'cabinCrew',           label: 'Cabin Crew',             emoji: '<:WP_people:1503497020311343234>', max: 4 },
+  { key: 'groundHandling',      label: 'Turnaround Manager',     emoji: '<:WP_helpdesk:1503497171243110440>',  max: 1 },
+  { key: 'tarmacSupervisor',    label: 'Ground Crew',            emoji: '<:WP_passenger:1503497017295376514>', max: 3 },
+  { key: 'dispatchCoordinator', label: 'Customer Service',       emoji: '<:WP_share:1503497105908437032>',   max: 3 },
 ];
 
 function getRoleConfig(key) {
@@ -40,7 +40,7 @@ function buildMainEmbed(flight, allocation) {
     .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
     .addFields(
       {
-        name: '🛫 Flight Briefing',
+        name: '<:WP_takeoff:1503497120760729771> Flight Briefing',
         value: `__**${flight.number}**__ • ${flight.date || new Date().toDateString()}`,
       },
       {
