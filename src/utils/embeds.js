@@ -32,8 +32,8 @@ const roleLines = ROLES.map(role => {
   const count = allocation[role.key]?.length || 0;
 
   const members = allocation[role.key]?.length
-    ? ` (${allocation[role.key].join(', ')})`
-    : '';
+  ? ` (${allocation[role.key].map(id => `<@${id}>`).join(', ')})`
+  : '';
 
   return `${role.emoji} **${role.label}** ${count}${members}`;
 })
