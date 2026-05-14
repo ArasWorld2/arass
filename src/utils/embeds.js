@@ -28,17 +28,12 @@ function buildMainEmbed(flight, allocation) {
     ` **Operations Closure:** ${flight.operationsClosure || 'TBA'}`,
   ].join('\n');
 
-const roleLines = ROLES.map(role => {
-  const count = allocation[role.key]?.length || 0;
-
-  const members = allocation[role.key]?.length
-  ? ` (${allocation[role.key].map(id => `<@${id}>`).join(', ')})`
-  : '';
-
-  return `${role.emoji} **${role.label}** ${count}${members}`;
-})
-.filter(Boolean)
-.join('\n');
+  const roleLines = ROLES.map(role => {
+    const filled = (allocation && allocation[role.key]) || [];
+    const count = `(${filled.length}/${role.max})`;
+    const members = filled.length > 0 ? ' ' + filled.map(id => `<@${id}>`).join(', ') : '';
+    return `${role.emoji} **${role.label}** ${count}${members}`;
+  }).join('\n');
 
   return new EmbedBuilder()
     .setColor(WIZZ_PURPLE)
@@ -54,9 +49,7 @@ const roleLines = ROLES.map(role => {
       },
       {
         name: '\u200B',
-        value:
-          `${infoLines || ''}\n**Flight Roles**\n${roleLines || 'None'}`
-            .slice(0, 1024),
+        value: infoLines + '\n**Flight Roles**\n' + roleLines,
       }
     )
     .setFooter({ text: 'Wizz Air Flight Operations • Select a role below to allocate' })
