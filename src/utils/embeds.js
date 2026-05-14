@@ -19,11 +19,12 @@ function getRoleConfig(key) {
 }
 
 function buildMainEmbed(flight, allocation) {
+  // 1. Ensure infoLines isn't empty by providing fallbacks
   const infoLines = [
-    ` **Route:** ${flight.from} → ${flight.to}`,
-    ` **Plane:** ${flight.aircraft}`,
+    ` **Route:** ${flight.from || 'TBD'} → ${flight.to || 'TBD'}`,
+    ` **Plane:** ${flight.aircraft || 'TBD'}`,
     ` **Gate:** ${flight.gate || 'TBA'}`,
-    ` **Personnel Join Time:** ${flight.staffTime} | **Passenger Joining Time:** ${flight.passengerTime}`,
+    ` **Personnel Join Time:** ${flight.staffTime || 'TBA'} | **Passenger Joining Time:** ${flight.passengerTime || 'TBA'}`,
     ` **Boarding Time:** ${flight.boardingTime || 'TBA'}`,
     ` **Operations Closure:** ${flight.operationsClosure || 'TBA'}`,
   ].join('\n');
@@ -35,13 +36,14 @@ function buildMainEmbed(flight, allocation) {
     return `${role.emoji} **${role.label}** ${count}${members}`;
   }).join('\n');
 
+  // 2. Wrap everything in Template Literals ${} to force them into Strings
   return new EmbedBuilder()
     .setColor(WIZZ_PURPLE)
     .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
-    .addFields(
+    .addFields([ // Discord.js prefers fields passed as an array
       {
         name: '<:WP_takeoff:1503497120760729771> Flight Briefing',
-        value: `__**${flight.number}**__ • ${flight.date || new Date().toDateString()}`,
+        value: `__**${flight.number || 'N/A'}**__ • ${flight.date || new Date().toDateString()}`,
       },
       {
         name: '\u200B',
@@ -49,9 +51,9 @@ function buildMainEmbed(flight, allocation) {
       },
       {
         name: '\u200B',
-        value: infoLines + '\n**Flight Roles**\n' + roleLines,
+        value: `${infoLines}\n\n**Flight Roles**\n${roleLines}`, // Extra safety check on the string
       }
-    )
+    ])
     .setFooter({ text: 'Wizz Air Flight Operations • Select a role below to allocate' })
     .setTimestamp();
 }
