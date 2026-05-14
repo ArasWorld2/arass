@@ -49,7 +49,7 @@ function buildMainEmbed(flight, allocation) {
       },
       {
         name: '\u200B',
-        value: infoLines + '\n**Flight Roles**\n' + roleLines,
+        value: (infoLines + '\n**Flight Roles**\n' + roleLines) || '\u200B',
       }
     )
     .setFooter({ text: 'Wizz Air Flight Operations • Select a role below to allocate' })
