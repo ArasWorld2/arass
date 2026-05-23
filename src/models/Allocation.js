@@ -25,6 +25,9 @@ const allocationSchema = new mongoose.Schema({
   groundHandling:      { type: [String], default: [] },
   tarmacSupervisor:    { type: [String], default: [] },
   dispatchCoordinator: { type: [String], default: [] },
+  bagDropAgent:        { type: [String], default: [] },
+  gateAgent:           { type: [String], default: [] },
+  loungeAttendant:     { type: [String], default: [] },
   queues: {
     dispatchSupervisor:  { type: [String], default: [] },
     flightSupervisor:    { type: [String], default: [] },
@@ -35,6 +38,9 @@ const allocationSchema = new mongoose.Schema({
     groundHandling:      { type: [String], default: [] },
     tarmacSupervisor:    { type: [String], default: [] },
     dispatchCoordinator: { type: [String], default: [] },
+    bagDropAgent:        { type: [String], default: [] },
+    gateAgent:           { type: [String], default: [] },
+    loungeAttendant:     { type: [String], default: [] },
   },
 }, { timestamps: true });
 
