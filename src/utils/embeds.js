@@ -65,7 +65,7 @@ function buildMainEmbed(flight, allocation) {
   value: infoLines || '\u200B',
 },
 {
-  name: '✈️ Flight Roles',
+  name: 'Flight Roles',
   value: flightRoleLines || '\u200B',
 },
 {
