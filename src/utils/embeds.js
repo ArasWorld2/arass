@@ -5,21 +5,37 @@ const WIZZ_PURPLE = 0xC6007E;
 const ROLES = [
   { key: 'dispatchSupervisor',  label: 'Flight Dispatcher',     emoji: '<:WP_person:1503497022211227850>', max: 1 },
   { key: 'flightSupervisor',    label: 'Flight Supervisor',      emoji: '<:WP_person:1503497022211227850>', max: 2 },
-  { key: 'captain',             label: 'Captain',                emoji: '<:WP_man:1503497042071257249>',  max: 1 },
+  { key: 'captain',             label: 'Captain',                emoji: '<:WP_man:1503497042071257249>',    max: 1 },
   { key: 'firstOfficer',        label: 'First Officer',          emoji: '<:WP_link:1503497040406253769>',   max: 1 },
-  { key: 'purser',              label: 'Senior Cabin Attendant', emoji: '<:WP_telephone:1503497077588496614>',   max: 1 },
+  { key: 'purser',              label: 'Senior Cabin Attendant', emoji: '<:WP_telephone:1503497077588496614>', max: 1 },
   { key: 'cabinCrew',           label: 'Cabin Crew',             emoji: '<:WP_people:1503497020311343234>', max: 4 },
-  { key: 'groundHandling',      label: 'Turnaround Manager',     emoji: '<:WP_helpdesk:1503497171243110440>',  max: 1 },
+  { key: 'groundHandling',      label: 'Turnaround Manager',     emoji: '<:WP_helpdesk:1503497171243110440>', max: 1 },
   { key: 'tarmacSupervisor',    label: 'Ground Crew',            emoji: '<:WP_passenger:1503497017295376514>', max: 3 },
-  { key: 'dispatchCoordinator', label: 'Customer Service',       emoji: '<:WP_share:1503497105908437032>',   max: 3 },
+  { key: 'dispatchCoordinator', label: 'Customer Service',       emoji: '<:WP_share:1503497105908437032>',  max: 3 },
+  { key: 'bagDropAgent',        label: 'Bag Drop Agent',         emoji: '🧳', max: 3 },
+  { key: 'gateAgent',           label: 'Gate Agent',             emoji: '🚪', max: 2 },
+  { key: 'loungeAttendant',     label: 'Lounge Attendant',       emoji: '🛋️', max: 2 },
 ];
+
+const FLIGHT_ROLE_KEYS = ['dispatchSupervisor', 'flightSupervisor', 'captain', 'firstOfficer', 'purser', 'cabinCrew', 'groundHandling', 'tarmacSupervisor'];
+const GROUND_ROLE_KEYS = ['dispatchCoordinator', 'bagDropAgent', 'gateAgent', 'loungeAttendant'];
 
 function getRoleConfig(key) {
   return ROLES.find(r => r.key === key);
 }
 
+function buildRoleLines(keys, allocation) {
+  return keys.map(key => {
+    const role = ROLES.find(r => r.key === key);
+    if (!role) return '';
+    const filled = (allocation && allocation[role.key]) || [];
+    const count = `(${filled.length}/${role.max})`;
+    const members = filled.length > 0 ? ' ' + filled.map(id => `<@${id}>`).join(', ') : '';
+    return `${role.emoji} **${role.label}** ${count}${members}`;
+  }).filter(Boolean).join('\n');
+}
+
 function buildMainEmbed(flight, allocation) {
-  // 1. Ensure infoLines isn't empty by providing fallbacks
   const infoLines = [
     ` **Route:** ${flight.from || 'TBD'} → ${flight.to || 'TBD'}`,
     ` **Plane:** ${flight.aircraft || 'TBD'}`,
@@ -29,18 +45,13 @@ function buildMainEmbed(flight, allocation) {
     ` **Operations Closure:** ${flight.operationsClosure || 'TBA'}`,
   ].join('\n');
 
-  const roleLines = ROLES.map(role => {
-    const filled = (allocation && allocation[role.key]) || [];
-    const count = `(${filled.length}/${role.max})`;
-    const members = filled.length > 0 ? ' ' + filled.map(id => `<@${id}>`).join(', ') : '';
-    return `${role.emoji} **${role.label}** ${count}${members}`;
-  }).join('\n');
+  const flightRoleLines = buildRoleLines(FLIGHT_ROLE_KEYS, allocation);
+  const groundRoleLines = buildRoleLines(GROUND_ROLE_KEYS, allocation);
 
-  // 2. Wrap everything in Template Literals ${} to force them into Strings
   return new EmbedBuilder()
     .setColor(WIZZ_PURPLE)
     .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
-    .addFields([ // Discord.js prefers fields passed as an array
+    .addFields([
       {
         name: '<:WP_takeoff:1503497120760729771> Flight Briefing',
         value: `__**${flight.number || 'N/A'}**__ • ${flight.date || new Date().toDateString()}`,
@@ -51,7 +62,7 @@ function buildMainEmbed(flight, allocation) {
       },
       {
         name: '\u200B',
-        value: `${infoLines}\n\n**Flight Roles**\n${roleLines}`, // Extra safety check on the string
+        value: `${infoLines}\n\n**✈️ Flight Roles**\n${flightRoleLines}\n\n**🛂 Ground Roles**\n${groundRoleLines}`,
       }
     ])
     .setFooter({ text: 'Wizz Air Flight Operations • Select a role below to allocate' })
