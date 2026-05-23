@@ -12,9 +12,9 @@ const ROLES = [
   { key: 'groundHandling',      label: 'Turnaround Manager',     emoji: '<:WP_helpdesk:1503497171243110440>', max: 1 },
   { key: 'tarmacSupervisor',    label: 'Ground Crew',            emoji: '<:WP_passenger:1503497017295376514>', max: 3 },
   { key: 'dispatchCoordinator', label: 'Customer Service',       emoji: '<:WP_share:1503497105908437032>',  max: 3 },
-  { key: 'bagDropAgent',        label: 'Bag Drop Agent',         emoji: '🧳', max: 3 },
-  { key: 'gateAgent',           label: 'Gate Agent',             emoji: '🚪', max: 2 },
-  { key: 'loungeAttendant',     label: 'Lounge Attendant',       emoji: '🛋️', max: 2 },
+  { key: 'bagDropAgent',        label: 'Bag Drop Agent',         emoji: '<:WP_share:1503497105908437032>', max: 3 },
+  { key: 'gateAgent',           label: 'Gate Agent',             emoji: '<:WP_helpdesk:1503497171243110440>', max: 1 },
+  { key: 'loungeAttendant',     label: 'Lounge Attendant',       emoji: '<:WP_link:1503497040406253769>', max: 2 },
 ];
 
 const FLIGHT_ROLE_KEYS = ['dispatchSupervisor', 'flightSupervisor', 'captain', 'firstOfficer', 'purser', 'cabinCrew', 'groundHandling', 'tarmacSupervisor'];
@@ -69,7 +69,7 @@ function buildMainEmbed(flight, allocation) {
   value: flightRoleLines || '\u200B',
 },
 {
-  name: '🛂 Ground Roles',
+  name: 'Ground Roles',
   value: groundRoleLines || '\u200B',
 }
     ])
