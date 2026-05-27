@@ -24,7 +24,7 @@ async function updateCalendar(client) {
         event.scheduledStartAt.getDate()
       );
       const timeStr = event.scheduledStartAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      const line = `✈️ **${event.name}** | ${timeStr}`;
+      const line = `<:Wnewtail:1272656069910462464> **${event.name}** | ${timeStr}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -40,7 +40,7 @@ async function updateCalendar(client) {
     const embed = new EmbedBuilder()
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
-      .setTitle('✈️ Flight Calendar')
+      .setTitle('<:plane:1414277643314004079> Flight Calendar')
       .setDescription('Below are the upcoming flights:')
       .addFields(
         {
@@ -54,7 +54,7 @@ async function updateCalendar(client) {
             : 'No upcoming flights scheduled.',
         }
       )
-      .setFooter({ text: 'Wizz Air Virtual Operations' })
+      .setFooter({ text: 'Wizz Air Operations' })
       .setTimestamp();
 
     const channel = await client.channels.fetch(calendarChannelId);
