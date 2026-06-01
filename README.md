@@ -45,7 +45,7 @@ npm install
 ### 4. Configure Environment Variables
 
 ```bash
-cp .env.example .env
+cd flight-bot
 ```
 
 Edit `.env` and fill in:
