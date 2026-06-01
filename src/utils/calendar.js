@@ -30,11 +30,9 @@ async function updateCalendar(client) {
       const timeHammerTime = `<t:${unixTimestamp}:t>`;
       const dateHammerTime = `<t:${unixTimestamp}:d>`;
 
-      // Construct a clean format by keeping the hyperlink on its own distinct line snippet block
+      // Kept completely compact so it stays on one layout line internally
       const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
-      
-      // Clean format: Emote + Name + Time + Date, with a clean link on the line directly below it
-      const line = `<:Wnewtail:1272656069910462464> **${event.name}** | ${timeHammerTime} | ${dateHammerTime}\n↳ [Click to view Event Card](${eventUrl})`;
+      const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -48,7 +46,6 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // Use double-line breaks (\n\n) to neatly separate the multi-line events
     const embed = new EmbedBuilder()
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
@@ -57,12 +54,12 @@ async function updateCalendar(client) {
       .addFields(
         {
           name: `Today (${todayStr}):`,
-          value: todayEvents.length > 0 ? todayEvents.join('\n\n') : 'No flights scheduled today.',
+          value: todayEvents.length > 0 ? todayEvents.join('\n') : 'No flights scheduled today.',
         },
         {
           name: 'Upcoming Flights:',
           value: upcomingEvents.length > 0
-            ? upcomingEvents.slice(0, 5).map(f => f.line).join('\n\n')
+            ? upcomingEvents.slice(0, 5).map(f => f.line).join('\n')
             : 'No upcoming flights scheduled.',
         }
       )
