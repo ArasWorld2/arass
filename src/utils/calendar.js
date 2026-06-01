@@ -30,15 +30,13 @@ async function updateCalendar(client) {
       const timeHammerTime = `<t:${unixTimestamp}:t>`;      
       const dateHammerTime = `<t:${unixTimestamp}:d>`;      
 
-      // FIX: Clean the event name by stripping any existing '[', ']', or '*' characters 
-      // This stops nested bracket errors like [[W6 1385]](url) from breaking the markdown parser!
-      const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
+      // FIX: Use Discord's native Scheduled Event Mention tag structure.
+      // This forces Discord to automatically render a clickable blue badge
+      // showing the event name, perfectly mirroring the Qatar layout!
+      const eventMention = `<@&${event.id}>`;
 
-      // Construct direct event URL link
-      const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
-      
-      // Clean, single-line format using the sanitized name
-      const line = `<:Wnewtail:1272656069910462464> [**${cleanEventName}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
+      // Clean, single-line format: Logo Emote + Native Event Mention Badge + Time + Date
+      const line = `<:Wnewtail:1272656069910462464> ${eventMention} | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -52,7 +50,7 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // Build the description block text cleanly
+    // Assemble description block layout
     let descriptionText = "Below are the upcoming flights:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
@@ -73,7 +71,7 @@ async function updateCalendar(client) {
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
       .setTitle('<:plane:1414277643314004079> Flight Calendar')
-      .setDescription(descriptionText) 
+      .setDescription(descriptionText)
       .setFooter({ text: 'Wizz Air Operations' })
       .setTimestamp();
 
@@ -82,7 +80,7 @@ async function updateCalendar(client) {
     if (calendarMessageId) {
       try {
         const msg = await channel.messages.fetch(calendarMessageId);
-        await msg.edit({ embeds: [embed] });
+        await msg.edit({ embeds: [embed], components: [] }); // Clears old buttons if existing
         return;
       } catch {}
     }
