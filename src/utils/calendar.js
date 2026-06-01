@@ -30,12 +30,10 @@ async function updateCalendar(client) {
       const timeHammerTime = `<t:${unixTimestamp}:t>`;      
       const dateHammerTime = `<t:${unixTimestamp}:d>`;      
 
-      // FIX: Use Discord's native Scheduled Event Mention tag structure.
-      // This forces Discord to automatically render a clickable blue badge
-      // showing the event name, perfectly mirroring the Qatar layout!
-      const eventMention = `<@&${event.id}>`;
+      // FIX: The correct syntax for a native clickable Discord Event Mention badge is <@id>
+      const eventMention = `<@${event.id}>`;
 
-      // Clean, single-line format: Logo Emote + Native Event Mention Badge + Time + Date
+      // Single line layout structure matching the Qatar Airways design format
       const line = `<:Wnewtail:1272656069910462464> ${eventMention} | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
@@ -50,7 +48,7 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // Assemble description block layout
+    // Assemble description block layout strings
     let descriptionText = "Below are the upcoming flights:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
@@ -80,7 +78,7 @@ async function updateCalendar(client) {
     if (calendarMessageId) {
       try {
         const msg = await channel.messages.fetch(calendarMessageId);
-        await msg.edit({ embeds: [embed], components: [] }); // Clears old buttons if existing
+        await msg.edit({ embeds: [embed] });
         return;
       } catch {}
     }
