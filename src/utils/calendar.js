@@ -27,19 +27,18 @@ async function updateCalendar(client) {
 
       // Convert to Discord Unix Timestamps (Hammer Time)
       const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-      
-      // We use Discord's native 't' (Short Time) and 'd' (Short Date).
-      // Crucial: These tags already output their own stylized block in Discord. 
-      // Do NOT wrap them or the line in backticks (`)!
-      const timeHammerTime = `<t:${unixTimestamp}:t>`;      // e.g., 17:00
-      const dateHammerTime = `<t:${unixTimestamp}:d>`;      // e.g., 27/06/2026
+      const timeHammerTime = `<t:${unixTimestamp}:t>`;      
+      const dateHammerTime = `<t:${unixTimestamp}:d>`;      
 
-      // Construct the absolute direct URL link string to the Discord Event Card
+      // FIX: Clean the event name by stripping any existing '[', ']', or '*' characters 
+      // This stops nested bracket errors like [[W6 1385]](url) from breaking the markdown parser!
+      const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
+
+      // Construct direct event URL link
       const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
-
-      // EXACT FORMAT: Emote + Plain Text Hyperlink + Separators + Native Time Blocks
-      // Absolutely zero backticks are used here.
-      const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
+      
+      // Clean, single-line format using the sanitized name
+      const line = `<:Wnewtail:1272656069910462464> [**${cleanEventName}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -53,7 +52,7 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // Assemble the clean layout in the ultra-wide description block
+    // Build the description block text cleanly
     let descriptionText = "Below are the upcoming flights:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
@@ -74,7 +73,7 @@ async function updateCalendar(client) {
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
       .setTitle('<:plane:1414277643314004079> Flight Calendar')
-      .setDescription(descriptionText)
+      .setDescription(descriptionText) 
       .setFooter({ text: 'Wizz Air Operations' })
       .setTimestamp();
 
