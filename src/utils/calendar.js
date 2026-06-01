@@ -16,7 +16,7 @@ async function updateCalendar(client) {
     const todayEvents    = [];
     const upcomingEvents = [];
 
-    for (const [, event] of events) {
+for (const [, event] of events) {
       if (!event.scheduledStartAt) continue;
       
       const eventDay = new Date(
@@ -30,9 +30,11 @@ async function updateCalendar(client) {
       const timeHammerTime = `<t:${unixTimestamp}:t>`;
       const dateHammerTime = `<t:${unixTimestamp}:d>`;
 
-      // Kept completely compact so it stays on one layout line internally
-      const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
-      const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
+      // Native Discord Scheduled Event mention tag
+      const eventMention = `<&${event.id}>`;
+
+      // Clean format utilizing Discord's native event tag structure
+      const line = `<:Wnewtail:1272656069910462464> ${eventMention} | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
