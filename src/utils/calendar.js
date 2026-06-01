@@ -16,7 +16,6 @@ async function updateCalendar(client) {
     const todayEvents    = [];
     const upcomingEvents = [];
 
-    // Categorize events
     for (const [, event] of events) {
       if (!event.scheduledStartAt) continue;
       
@@ -26,21 +25,22 @@ async function updateCalendar(client) {
         event.scheduledStartAt.getDate()
       );
 
+      // Convert to Discord Unix Timestamps (Hammer Time)
       const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
       const timeHammerTime = `<t:${unixTimestamp}:t>`;      
       const dateHammerTime = `<t:${unixTimestamp}:d>`;      
-      const cleanName = event.name.replace(/[\[\]\*]/g, '').trim();
 
-      // Create a clean line for the embed without any broken markdown links
-      const embedLine = `<:Wnewtail:1272656069910462464> **${cleanName}** | ${timeHammerTime} | ${dateHammerTime}`;
-      
-      // Create the native plain-text event tag to place outside the embed
-      const nativeTag = `<@${event.id}>`;
+      // THE ULTIMATE FIX: The native mention format for Guild Scheduled Events is <@_id>
+      // This forces Discord to render the clean blue pill token showing the flight name!
+      const eventMention = `<@_${event.id}>`;
+
+      // Clean, compact layout line: Logo Emote + Blue Event Badge Token + Timestamps
+      const line = `<:Wnewtail:1272656069910462464> ${eventMention} | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
-        todayEvents.push({ embedLine, nativeTag });
+        todayEvents.push(line);
       } else if (eventDay > today) {
-        upcomingEvents.push({ embedLine, nativeTag, date: event.scheduledStartAt });
+        upcomingEvents.push({ line, date: event.scheduledStartAt });
       }
     }
 
@@ -49,19 +49,19 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // Build the clean Embed Description text block
+    // Assemble description block layout strings
     let descriptionText = "Below are the upcoming operational sectors:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
     if (todayEvents.length > 0) {
-      descriptionText += todayEvents.map(e => e.embedLine).join('\n') + '\n\n';
+      descriptionText += todayEvents.join('\n') + '\n\n';
     } else {
       descriptionText += 'No flights scheduled today.\n\n';
     }
 
     descriptionText += `**Upcoming Flights:**\n`;
     if (upcomingEvents.length > 0) {
-      descriptionText += upcomingEvents.slice(0, 5).map(e => e.embedLine).join('\n');
+      descriptionText += upcomingEvents.slice(0, 5).map(f => f.line).join('\n');
     } else {
       descriptionText += 'No upcoming flights scheduled.';
     }
@@ -74,22 +74,18 @@ async function updateCalendar(client) {
       .setFooter({ text: 'Wizz Air Operations' })
       .setTimestamp();
 
-    // Collect all native event badges to send in the plain-text message block
-    const allTags = [...todayEvents, ...upcomingEvents.slice(0, 5)].map(e => e.nativeTag);
-    const contentString = allTags.length > 0 ? `✈️ **Quick Links to Event Cards:**\n${allTags.join('  ')}` : '';
-
     const channel = await client.channels.fetch(calendarChannelId);
 
-    // If updating an existing message, send both content text and embed
+    // Update or post the message (Clearing old plain-text test content strings cleanly)
     if (calendarMessageId) {
       try {
         const msg = await channel.messages.fetch(calendarMessageId);
-        await msg.edit({ content: contentString, embeds: [embed] });
+        await msg.edit({ content: '', embeds: [embed] });
         return;
       } catch {}
     }
 
-    const newMsg = await channel.send({ content: contentString, embeds: [embed] });
+    const newMsg = await channel.send({ content: '', embeds: [embed] });
     console.log(`📅 Calendar posted! Add CALENDAR_MESSAGE_ID=${newMsg.id} to Railway variables`);
 
   } catch (err) {
