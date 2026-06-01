@@ -16,6 +16,7 @@ async function updateCalendar(client) {
     const todayEvents    = [];
     const upcomingEvents = [];
 
+    // Categorize events
     for (const [, event] of events) {
       if (!event.scheduledStartAt) continue;
       
@@ -25,53 +26,65 @@ async function updateCalendar(client) {
         event.scheduledStartAt.getDate()
       );
 
-      // Convert to Discord Unix Timestamps (Hammer Time)
-      const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-      const timeHammerTime = `<t:${unixTimestamp}:t>`;      
-      const dateHammerTime = `<t:${unixTimestamp}:d>`;      
-
-      // FIX: The correct syntax for a native clickable Discord Event Mention badge is <@id>
-      const eventMention = `<@${event.id}>`;
-
-      // Single line layout structure matching the Qatar Airways design format
-      const line = `<:Wnewtail:1272656069910462464> ${eventMention} | ${timeHammerTime} | ${dateHammerTime}`;
-
       if (eventDay.getTime() === today.getTime()) {
-        todayEvents.push(line);
+        todayEvents.push(event);
       } else if (eventDay > today) {
-        upcomingEvents.push({ line, date: event.scheduledStartAt });
+        upcomingEvents.push(event);
       }
     }
 
-    // Sort upcoming flights chronologically
-    upcomingEvents.sort((a, b) => a.date - b.date);
-
-    const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-    // Assemble description block layout strings
-    let descriptionText = "Below are the upcoming flights:\n\n";
-    
-    descriptionText += `**Today (${todayStr}):**\n`;
-    if (todayEvents.length > 0) {
-      descriptionText += todayEvents.join('\n') + '\n\n';
-    } else {
-      descriptionText += 'No flights scheduled today.\n\n';
-    }
-
-    descriptionText += `**Upcoming Flights:**\n`;
-    if (upcomingEvents.length > 0) {
-      descriptionText += upcomingEvents.slice(0, 5).map(f => f.line).join('\n');
-    } else {
-      descriptionText += 'No upcoming flights scheduled.';
-    }
+    // Sort upcoming events chronologically
+    upcomingEvents.sort((a, b) => a.scheduledStartAt - b.scheduledStartAt);
 
     const embed = new EmbedBuilder()
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
-      .setTitle('<:plane:1414277643314004079> Flight Calendar')
-      .setDescription(descriptionText)
-      .setFooter({ text: 'Wizz Air Operations' })
+      .setTitle('📅 Upcoming Flights')
+      .setFooter({ text: '© Wizz Air – All Rights Reserved' })
       .setTimestamp();
+
+    const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+    
+    // 1. Process "Today" Section using Qatar structural layout blocks
+    embed.addFields({ name: `Today (${todayStr})`, value: '\u200B', inline: false });
+
+    if (todayEvents.length === 0) {
+      embed.addFields({ name: ' No flights scheduled today.', value: '\u200B', inline: false });
+    } else {
+      for (const event of todayEvents) {
+        const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
+        const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
+        const cleanName = event.name.replace(/[\[\]\*]/g, '').trim();
+
+        embed.addFields({
+          name: `<:Wnewtail:1272656069910462464> [**${cleanName}**](${eventUrl})`,
+          value: `> **Join Time:** <t:${unixTimestamp}:t>\n> **Date:** <t:${unixTimestamp}:d>`,
+          inline: false
+        });
+      }
+    }
+
+    // 2. Process "Upcoming" Section 
+    embed.addFields({ name: '\u200B', value: '\u200B', inline: false }); // Empty spacing block
+    embed.addFields({ name: 'Upcoming Sectors', value: '\u200B', inline: false });
+
+    if (upcomingEvents.length === 0) {
+      embed.addFields({ name: ' No upcoming sectors scheduled.', value: '\u200B', inline: false });
+    } else {
+      // Limit to top 5 upcoming sectors
+      const slicedUpcoming = upcomingEvents.slice(0, 5);
+      for (const event of slicedUpcoming) {
+        const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
+        const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
+        const cleanName = event.name.replace(/[\[\]\*]/g, '').trim();
+
+        embed.addFields({
+          name: `<:Wnewtail:1272656069910462464> [**${cleanName}**](${eventUrl})`,
+          value: `> **Join Time:** <t:${unixTimestamp}:t>\n> **Date:** <t:${unixTimestamp}:d>`,
+          inline: false
+        });
+      }
+    }
 
     const channel = await client.channels.fetch(calendarChannelId);
 
