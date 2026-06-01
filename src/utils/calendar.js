@@ -27,13 +27,13 @@ async function updateCalendar(client) {
 
       // Convert to Discord Unix Timestamps (Hammer Time)
       const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-      const timeHammerTime = `<t:${unixTimestamp}:t>`;      // 17:00
-      const dateHammerTime = `<t:${unixTimestamp}:d>`;      // 27/06/2026
+      const timeHammerTime = `<t:${unixTimestamp}:t>`;      // Short Time (e.g., 17:00)
+      const dateHammerTime = `<t:${unixTimestamp}:d>`;      // Short Date (e.g., 27/06/2026)
 
-      // Construct direct event URL link
+      // Create the direct URL link string to the Discord Event Card
       const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
-      
-      // Clean, single-line format: Emote [Flight Number](Link) | Time | Date
+
+      // FIX: Clean plain text layout with absolutely zero backticks (`) or code-block formatting wrappers!
       const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
@@ -48,7 +48,7 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // Build a single, beautiful description string exactly like the Qatar bot layout style
+    // Constructing a wide description box string block exactly like the Qatar bot layout format
     let descriptionText = "Below are the upcoming flights:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
@@ -69,7 +69,7 @@ async function updateCalendar(client) {
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
       .setTitle('<:plane:1414277643314004079> Flight Calendar')
-      .setDescription(descriptionText) // Uses the ultra-wide description block instead of narrow fields!
+      .setDescription(descriptionText)
       .setFooter({ text: 'Wizz Air Operations' })
       .setTimestamp();
 
