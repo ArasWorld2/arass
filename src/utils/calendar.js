@@ -27,14 +27,16 @@ async function updateCalendar(client) {
 
       // Convert to Discord Unix Timestamps (Hammer Time)
       const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-      const timeHammerTime = `<t:${unixTimestamp}:t>`;
-      const dateHammerTime = `<t:${unixTimestamp}:d>`;
+      
+      // We use a single 'f' flag (Short Date/Time combo: 27 June 2026 17:00)
+      // This is vastly shorter than writing two separate timestamp strings!
+      const fullHammerTime = `<t:${unixTimestamp}:f>`;
 
-      // Generate direct event URL
+      // Generate the direct event URL
       const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
       
-      // Formatting the hyperlink FIRST so Discord reads the link before any line-wrap happens
-      const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
+      // Super compact layout: keeps the hyperlink safe from text-wrapping bugs
+      const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) — ${fullHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -81,7 +83,7 @@ async function updateCalendar(client) {
     const newMsg = await channel.send({ embeds: [embed] });
     console.log(`📅 Calendar posted! Add CALENDAR_MESSAGE_ID=${newMsg.id} to Railway variables`);
 
-  } catch (err) { 
+  } catch (err) {
     console.error('Calendar update error:', err.message);
   }
 }
