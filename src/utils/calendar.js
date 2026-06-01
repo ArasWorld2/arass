@@ -13,11 +13,9 @@ async function updateCalendar(client) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const fieldsArray = [];
-    const todayEvents = [];
+    const todayEvents    = [];
     const upcomingEvents = [];
 
-    // Separate events into Today vs Upcoming
     for (const [, event] of events) {
       if (!event.scheduledStartAt) continue;
       
@@ -27,60 +25,51 @@ async function updateCalendar(client) {
         event.scheduledStartAt.getDate()
       );
 
+      // Convert to Discord Unix Timestamps (Hammer Time)
+      const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
+      const timeHammerTime = `<t:${unixTimestamp}:t>`;      // 17:00
+      const dateHammerTime = `<t:${unixTimestamp}:d>`;      // 27/06/2026
+
+      // Construct direct event URL link
+      const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
+      
+      // Clean, single-line format: Emote [Flight Number](Link) | Time | Date
+      const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
+
       if (eventDay.getTime() === today.getTime()) {
-        todayEvents.push(event);
+        todayEvents.push(line);
       } else if (eventDay > today) {
-        upcomingEvents.push(event);
+        upcomingEvents.push({ line, date: event.scheduledStartAt });
       }
     }
 
-    // Sort upcoming events chronologically
-    upcomingEvents.sort((a, b) => a.scheduledStartAt - b.scheduledStartAt);
+    // Sort upcoming flights chronologically
+    upcomingEvents.sort((a, b) => a.date - b.date);
 
-    // 1. Process "Today" section
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    fieldsArray.push({ name: `━━━ Today (${todayStr}) ━━━`, value: '\u200B', inline: false });
 
-    if (todayEvents.length === 0) {
-      fieldsArray.push({ name: 'No flights scheduled today.', value: '\u200B', inline: false });
+    // Build a single, beautiful description string exactly like the Qatar bot layout style
+    let descriptionText = "Below are the upcoming flights:\n\n";
+    
+    descriptionText += `**Today (${todayStr}):**\n`;
+    if (todayEvents.length > 0) {
+      descriptionText += todayEvents.join('\n') + '\n\n';
     } else {
-      for (const event of todayEvents) {
-        const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-        const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
-        
-        fieldsArray.push({
-          name: `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl})`,
-          value: `➔ <t:${unixTimestamp}:t> | <t:${unixTimestamp}:d>`,
-          inline: false
-        });
-      }
+      descriptionText += 'No flights scheduled today.\n\n';
     }
 
-    // 2. Process "Upcoming Flights" section (Limit to top 5)
-    fieldsArray.push({ name: '━━━ Upcoming Flights ━━━', value: '\u200B', inline: false });
-
-    if (upcomingEvents.length === 0) {
-      fieldsArray.push({ name: 'No upcoming flights scheduled.', value: '\u200B', inline: false });
+    descriptionText += `**Upcoming Flights:**\n`;
+    if (upcomingEvents.length > 0) {
+      descriptionText += upcomingEvents.slice(0, 5).map(f => f.line).join('\n');
     } else {
-      const slicedUpcoming = upcomingEvents.slice(0, 5);
-      for (const event of slicedUpcoming) {
-        const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-        const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
-        
-        fieldsArray.push({
-          name: `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl})`,
-          value: `➔ <t:${unixTimestamp}:t> | <t:${unixTimestamp}:d>`,
-          inline: false
-        });
-      }
+      descriptionText += 'No upcoming flights scheduled.';
     }
 
     const embed = new EmbedBuilder()
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
       .setTitle('<:plane:1414277643314004079> Flight Calendar')
-      .setDescription('Below are the scheduled operational sectors:')
-      .addFields(fieldsArray)
+      .setDescription(descriptionText) // Uses the ultra-wide description block instead of narrow fields!
       .setFooter({ text: 'Wizz Air Operations' })
       .setTimestamp();
 
