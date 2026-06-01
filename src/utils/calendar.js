@@ -27,13 +27,18 @@ async function updateCalendar(client) {
 
       // Convert to Discord Unix Timestamps (Hammer Time)
       const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-      const timeHammerTime = `<t:${unixTimestamp}:t>`;      // Short Time (e.g., 17:00)
-      const dateHammerTime = `<t:${unixTimestamp}:d>`;      // Short Date (e.g., 27/06/2026)
+      
+      // We use Discord's native 't' (Short Time) and 'd' (Short Date).
+      // Crucial: These tags already output their own stylized block in Discord. 
+      // Do NOT wrap them or the line in backticks (`)!
+      const timeHammerTime = `<t:${unixTimestamp}:t>`;      // e.g., 17:00
+      const dateHammerTime = `<t:${unixTimestamp}:d>`;      // e.g., 27/06/2026
 
-      // Create the direct URL link string to the Discord Event Card
+      // Construct the absolute direct URL link string to the Discord Event Card
       const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
 
-      // FIX: Clean plain text layout with absolutely zero backticks (`) or code-block formatting wrappers!
+      // EXACT FORMAT: Emote + Plain Text Hyperlink + Separators + Native Time Blocks
+      // Absolutely zero backticks are used here.
       const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
@@ -48,7 +53,7 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // Constructing a wide description box string block exactly like the Qatar bot layout format
+    // Assemble the clean layout in the ultra-wide description block
     let descriptionText = "Below are the upcoming flights:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
