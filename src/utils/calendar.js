@@ -13,9 +13,8 @@ async function updateCalendar(client) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const todayEvents      = [];
-    const upcomingDates    = [];
-    const upcomingFlights  = [];
+    const todayEvents    = [];
+    const upcomingEvents = [];
 
     for (const [, event] of events) {
       if (!event.scheduledStartAt) continue;
@@ -26,32 +25,25 @@ async function updateCalendar(client) {
         event.scheduledStartAt.getDate()
       );
 
-      // Convert to Discord Unix Timestamp (Hammer Time)
+      // Convert to Discord Unix Timestamps (Hammer Time)
       const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-      const timeHammerTime = `<t:${unixTimestamp}:t>`;      // Short Time format (e.g., 16:00)
-      const dateHammerTime = `<t:${unixTimestamp}:d>`;      // Short Date format (e.g., 31/05/2026)
+      const timeHammerTime = `<t:${unixTimestamp}:t>`;      // Short Time (e.g., 17:00)
+      const dateHammerTime = `<t:${unixTimestamp}:d>`;      // Short Date (e.g., 26/07/2026)
+
+      // Format exactly as: Test | 17:00 | 26/07/26
+      const line = `<:Wnewtail:1272656069910462464> **${event.name}** | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
-        const line = `<:Wnewtail:1272656069910462464> **${event.name}** | ${timeHammerTime}`;
         todayEvents.push(line);
       } else if (eventDay > today) {
-        upcomingDates.push({ string: dateHammerTime, date: event.scheduledStartAt });
-        upcomingFlights.push({ 
-          string: `<:Wnewtail:1272656069910462464> **${event.name}** | ${timeHammerTime}`, 
-          date: event.scheduledStartAt 
-        });
+        upcomingEvents.push({ line, date: event.scheduledStartAt });
       }
     }
 
-    // Sort upcoming events by date chronologically
-    upcomingDates.sort((a, b) => a.date - b.date);
-    upcomingFlights.sort((a, b) => a.date - b.date);
+    // Sort upcoming flights chronologically
+    upcomingEvents.sort((a, b) => a.date - b.date);
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-    // Slice to top 5 upcoming entries
-    const slicedDates = upcomingDates.slice(0, 5).map(d => d.string).join('\n');
-    const slicedFlights = upcomingFlights.slice(0, 5).map(f => f.string).join('\n');
 
     const embed = new EmbedBuilder()
       .setColor(0xC6007E)
@@ -62,17 +54,12 @@ async function updateCalendar(client) {
         {
           name: `Today (${todayStr}):`,
           value: todayEvents.length > 0 ? todayEvents.join('\n') : 'No flights scheduled today.',
-          inline: false,
         },
         {
-          name: '📅 Date',
-          value: upcomingDates.length > 0 ? slicedDates : 'No upcoming flights.',
-          inline: true,
-        },
-        {
-          name: '✈️ Flight & Time',
-          value: upcomingFlights.length > 0 ? slicedFlights : 'No upcoming flights.',
-          inline: true,
+          name: 'Upcoming Flights:',
+          value: upcomingEvents.length > 0
+            ? upcomingEvents.slice(0, 5).map(f => f.line).join('\n')
+            : 'No upcoming flights scheduled.',
         }
       )
       .setFooter({ text: 'Wizz Air Operations' })
