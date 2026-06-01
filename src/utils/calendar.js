@@ -16,6 +16,7 @@ async function updateCalendar(client) {
     const todayEvents    = [];
     const upcomingEvents = [];
 
+    // Separate flights chronologically
     for (const [, event] of events) {
       if (!event.scheduledStartAt) continue;
       
@@ -25,61 +26,75 @@ async function updateCalendar(client) {
         event.scheduledStartAt.getDate()
       );
 
-      // Convert to Discord Unix Timestamps (Hammer Time)
-      const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-      const timeHammerTime = `<t:${unixTimestamp}:t>`;      
-      const dateHammerTime = `<t:${unixTimestamp}:d>`;      
-
-      // THE ULTIMATE FIX: The native mention format for Guild Scheduled Events is <@_id>
-      // This forces Discord to render the clean blue pill token showing the flight name!
-      const eventMention = `<@_${event.id}>`;
-
-      // Clean, compact layout line: Logo Emote + Blue Event Badge Token + Timestamps
-      const line = `<:Wnewtail:1272656069910462464> ${eventMention} | ${timeHammerTime} | ${dateHammerTime}`;
-
       if (eventDay.getTime() === today.getTime()) {
-        todayEvents.push(line);
+        todayEvents.push(event);
       } else if (eventDay > today) {
-        upcomingEvents.push({ line, date: event.scheduledStartAt });
+        upcomingEvents.push(event);
       }
     }
 
-    // Sort upcoming flights chronologically
-    upcomingEvents.sort((a, b) => a.date - b.date);
+    upcomingEvents.sort((a, b) => a.scheduledStartAt - b.scheduledStartAt);
 
-    const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-    // Assemble description block layout strings
-    let descriptionText = "Below are the upcoming operational sectors:\n\n";
-    
-    descriptionText += `**Today (${todayStr}):**\n`;
-    if (todayEvents.length > 0) {
-      descriptionText += todayEvents.join('\n') + '\n\n';
-    } else {
-      descriptionText += 'No flights scheduled today.\n\n';
-    }
-
-    descriptionText += `**Upcoming Flights:**\n`;
-    if (upcomingEvents.length > 0) {
-      descriptionText += upcomingEvents.slice(0, 5).map(f => f.line).join('\n');
-    } else {
-      descriptionText += 'No upcoming flights scheduled.';
-    }
-
+    // Instantiate Embed Core Layout
     const embed = new EmbedBuilder()
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
-      .setTitle('<:plane:1414277643314004079> Flight Calendar')
-      .setDescription(descriptionText)
+      .setTitle('📅 Flight Calendar')
+      .setDescription('Below are the upcoming operational flights:') // Clean description text block
       .setFooter({ text: 'Wizz Air Operations' })
       .setTimestamp();
 
+    const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+
+    // 1. PROCESS TODAY SECTOR BLOCK
+    embed.addFields({ name: `Today (${todayStr})`, value: '\u200B', inline: false });
+
+    if (todayEvents.length === 0) {
+      embed.addFields({ name: ' No flights scheduled today.', value: '\u200B', inline: false });
+    } else {
+      for (const event of todayEvents) {
+        const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
+        const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
+        const cleanName = event.name.replace(/[\[\]\*]/g, '').trim();
+
+        // Placing markdown hyperlinks inside the Field Title (name) or Field Content (value)
+        // forces Discord to parse it into a clean blue hyperlinked element like Qatar Airways!
+        embed.addFields({
+          name: `<:Wnewtail:1272656069910462464> [**${cleanName}**](${eventUrl})`,
+          value: `> **Join Time:** <t:${unixTimestamp}:t>\n> **Date:** <t:${unixTimestamp}:d>`,
+          inline: false
+        });
+      }
+    }
+
+    // 2. PROCESS UPCOMING FLIGHTS BLOCK
+    embed.addFields({ name: '\u200B', value: '\u200B', inline: false }); // Layout spacer line
+    embed.addFields({ name: 'Upcoming Flights', value: '\u200B', inline: false });
+
+    if (upcomingEvents.length === 0) {
+      embed.addFields({ name: ' No upcoming sectors scheduled.', value: '\u200B', inline: false });
+    } else {
+      // Limit list viewport to top 5 chronological rows
+      const slicedUpcoming = upcomingEvents.slice(0, 5);
+      for (const event of slicedUpcoming) {
+        const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
+        const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
+        const cleanName = event.name.replace(/[\[\]\*]/g, '').trim();
+
+        embed.addFields({
+          name: `<:Wnewtail:1272656069910462464> [**${cleanName}**](${eventUrl})`,
+          value: `> **Join Time:** <t:${unixTimestamp}:t>\n> **Date:** <t:${unixTimestamp}:d>`,
+          inline: false
+        });
+      }
+    }
+
     const channel = await client.channels.fetch(calendarChannelId);
 
-    // Update or post the message (Clearing old plain-text test content strings cleanly)
     if (calendarMessageId) {
       try {
         const msg = await channel.messages.fetch(calendarMessageId);
+        // Clean out any rogue plain-text context flags from earlier test iterations
         await msg.edit({ content: '', embeds: [embed] });
         return;
       } catch {}
