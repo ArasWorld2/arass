@@ -16,7 +16,7 @@ async function updateCalendar(client) {
     const todayEvents    = [];
     const upcomingEvents = [];
 
-for (const [, event] of events) {
+    for (const [, event] of events) {
       if (!event.scheduledStartAt) continue;
       
       const eventDay = new Date(
@@ -30,11 +30,11 @@ for (const [, event] of events) {
       const timeHammerTime = `<t:${unixTimestamp}:t>`;
       const dateHammerTime = `<t:${unixTimestamp}:d>`;
 
-      // Native Discord Scheduled Event mention tag
-      const eventMention = `<&${event.id}>`;
-
-      // Clean format utilizing Discord's native event tag structure
-      const line = `<:Wnewtail:1272656069910462464> ${eventMention} | ${timeHammerTime} | ${dateHammerTime}`;
+      // Generate direct event URL
+      const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
+      
+      // Formatting the hyperlink FIRST so Discord reads the link before any line-wrap happens
+      const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -81,7 +81,7 @@ for (const [, event] of events) {
     const newMsg = await channel.send({ embeds: [embed] });
     console.log(`📅 Calendar posted! Add CALENDAR_MESSAGE_ID=${newMsg.id} to Railway variables`);
 
-  } catch (err) {
+  } catch (err) { 
     console.error('Calendar update error:', err.message);
   }
 }
