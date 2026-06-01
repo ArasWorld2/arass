@@ -27,14 +27,12 @@ async function updateCalendar(client) {
 
       // Convert to Discord Unix Timestamps (Hammer Time)
       const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-      const timeHammerTime = `<t:${unixTimestamp}:t>`;      // Short Time (e.g., 17:00)
-      const dateHammerTime = `<t:${unixTimestamp}:d>`;      // Short Date (e.g., 26/07/2026)
+      const timeHammerTime = `<t:${unixTimestamp}:t>`;
+      const dateHammerTime = `<t:${unixTimestamp}:d>`;
 
-      // Create the direct link markdown to the Discord Event Card
-      const eventLink = `[**${event.name}**](https://discord.com/events/${calendarGuildId}/${event.id})`;
-
-      // Format exactly as: [Flight Number](link) | 17:00 | 26/07/2026
-      const line = `<:Wnewtail:1272656069910462464> ${eventLink} | ${timeHammerTime} | ${dateHammerTime}`;
+      // Cleaner markdown link formatting (ensuring no accidental linebreaks break the markdown)
+      const eventUrl = `https://discord.com/events/${calendarGuildId}/${event.id}`;
+      const line = `<:Wnewtail:1272656069910462464> [**${event.name}**](${eventUrl}) | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
