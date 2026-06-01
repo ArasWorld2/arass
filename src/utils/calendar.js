@@ -30,8 +30,11 @@ async function updateCalendar(client) {
       const timeHammerTime = `<t:${unixTimestamp}:t>`;      // Short Time (e.g., 17:00)
       const dateHammerTime = `<t:${unixTimestamp}:d>`;      // Short Date (e.g., 26/07/2026)
 
-      // Format exactly as: Test | 17:00 | 26/07/26
-      const line = `<:Wnewtail:1272656069910462464> **${event.name}** | ${timeHammerTime} | ${dateHammerTime}`;
+      // Create the direct link markdown to the Discord Event Card
+      const eventLink = `[**${event.name}**](https://discord.com/events/${calendarGuildId}/${event.id})`;
+
+      // Format exactly as: [Flight Number](link) | 17:00 | 26/07/2026
+      const line = `<:Wnewtail:1272656069910462464> ${eventLink} | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
