@@ -11,11 +11,13 @@ async function updateCalendar(client) {
     const events = await guild.scheduledEvents.fetch();
 
     const now = new Date();
+    // Normalize "today" to midnight to avoid hourly/timezone sorting drops
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const todayEvents    = [];
     const upcomingEvents = [];
 
+    // 1. Process and sort flights into correct chronological buckets
     for (const [, event] of events) {
       if (!event.scheduledStartAt) continue;
       
@@ -25,15 +27,13 @@ async function updateCalendar(client) {
         event.scheduledStartAt.getDate()
       );
 
-      // Convert to Discord Unix Timestamps (Hammer Time)
       const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
       const timeHammerTime = `<t:${unixTimestamp}:t>`;      
       const dateHammerTime = `<t:${unixTimestamp}:d>`;      
 
-      // Clean the event name of any rogue markdown characters
       const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
 
-      // Simple, beautiful line: Logo Emote + Bold Flight Name + Time | Date
+      // Clean, compact text line layout
       const line = `<:Wnewtail:1272656069910462464> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
@@ -43,13 +43,13 @@ async function updateCalendar(client) {
       }
     }
 
-    // Sort upcoming flights chronologically
+    // Sort upcoming flights so the nearest flight stays at the top
     upcomingEvents.sort((a, b) => a.date - b.date);
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // Assemble the text description block cleanly
-    let descriptionText = "Below are the upcoming flights:\n\n";
+    // 2. Build the text layout cleanly into the Description container
+    let descriptionText = "Below are the upcoming operational sectors:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
     if (todayEvents.length > 0) {
@@ -60,11 +60,13 @@ async function updateCalendar(client) {
 
     descriptionText += `**Upcoming Flights:**\n`;
     if (upcomingEvents.length > 0) {
-      descriptionText += upcomingEvents.slice(0, 5).map(f => f.line).join('\n');
+      // Allows up to 10 upcoming sectors to display comfortably without getting truncated
+      descriptionText += upcomingEvents.slice(0, 10).map(f => f.line).join('\n');
     } else {
       descriptionText += 'No upcoming flights scheduled.';
     }
 
+    // 3. Construct the clean Embed Object
     const embed = new EmbedBuilder()
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
@@ -75,7 +77,7 @@ async function updateCalendar(client) {
 
     const channel = await client.channels.fetch(calendarChannelId);
 
-    // Update the message and make sure any old plain text headers from tests are wiped out
+    // 4. Safely update or publish to the server channel
     if (calendarMessageId) {
       try {
         const msg = await channel.messages.fetch(calendarMessageId);
