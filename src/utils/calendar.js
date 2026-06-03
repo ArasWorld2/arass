@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, GuildScheduledEventStatus } = require('discord.js');
 
 // Track sent alerts in memory so the bot doesn't duplicate them on loop runs
 const sentAlerts = new Set();
@@ -20,6 +20,14 @@ async function updateCalendar(client) {
     const upcomingEvents = [];
 
     for (const [, event] of events) {
+      // CRITICAL FIX: If the event is canceled or completed, skip it entirely!
+      if (
+        event.status === GuildScheduledEventStatus.Canceled || 
+        event.status === GuildScheduledEventStatus.Completed
+      ) {
+        continue;
+      }
+
       if (!event.scheduledStartAt) continue;
       
       const eventDay = new Date(
@@ -104,6 +112,14 @@ async function checkUpcomingDepartures(client) {
     const now = new Date();
 
     for (const [, event] of events) {
+      // CRITICAL FIX: If the event is canceled or completed, do not alert or ghost-ping!
+      if (
+        event.status === GuildScheduledEventStatus.Canceled || 
+        event.status === GuildScheduledEventStatus.Completed
+      ) {
+        continue;
+      }
+
       if (!event.scheduledStartAt) continue;
 
       const timeDiffMs = event.scheduledStartAt.getTime() - now.getTime();
@@ -119,30 +135,23 @@ async function checkUpcomingDepartures(client) {
         const ghostPingMessage = await departuresChannel.send({ content: pingTarget });
         await ghostPingMessage.delete().catch(() => console.log("Ghost ping safe clean"));
 
-        // 2. BUILD THE DEPARTURES EMBED ALERT CARD
-        const alertEmbed = new EmbedBuilder()
-          .setColor(0xC6007E)
-          .setAuthor({ name: 'Wizz Air — Flight Departure Alert', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
-          .setTitle(`🛫 Upcoming Scheduled Departure: ${cleanEventName}`)
-          .setDescription(
-            `A new departure has been scheduled! Prepare your flight plans and secure your rosters.\n\n` +
-            `🔹 **Flight:** **${cleanEventName}**\n` +
-            `🔹 **Departure Time:** <t:${unixTimestamp}:t> (<t:${unixTimestamp}:R>)\n` +
-            `🔹 **Date:** <t:${unixTimestamp}:d>\n\n` +
-            `Click on the official Discord event card attached below to mark your attendance!`
-          )
-          .setFooter({ text: 'Wizz Air Operations Team' })
-          .setTimestamp();
+        // 2. CONSTRUCT CLEAN PLAIN-TEXT WORKFLOW LAYOUT
+        const plainTextMessage = 
+          `✈️ **WIZZ AIR — UPCOMING FLIGHT DEPARTURE ALERT** ✈️\n\n` +
+          `A new departure check window has opened. Please prepare your flight assignments and dispatch rosters!\n\n` +
+          `🔹 **Sector:** **${cleanEventName}**\n` +
+          `🔹 **Departure Time:** <t:${unixTimestamp}:t> (<t:${unixTimestamp}:R>)\n` +
+          `🔹 **Scheduled Date:** <t:${unixTimestamp}:d>\n\n` +
+          `Click "Interested" on the interactive operational card attached below to book your slot:\n` +
+          `${event.url}`;
 
-        // 3. SEND THE EMBED AND ATTACH THE EVENT URL
-        // Passing event.url into the content block forces Discord to generate the live interactive event card box right underneath our pink embed card!
+        // 3. SEND AS REGULAR TEXT
         await departuresChannel.send({ 
-          content: `${event.url}`, 
-          embeds: [alertEmbed] 
+          content: plainTextMessage 
         });
 
         sentAlerts.add(event.id);
-        console.log(`📢 20-hour alert & ghost-ping processed with event card for: ${cleanEventName}`);
+        console.log(`📢 Plain text alert & ghost-ping deployed successfully for: ${cleanEventName}`);
       }
     }
   } catch (err) {
