@@ -1,8 +1,8 @@
 const { EmbedBuilder, GuildScheduledEventStatus } = require('discord.js');
 
-// Track sent alerts and active events in memory to completely prevent ghost-ping loops on deletion
-const sentAlerts = new Set();
-let lastSeenActiveEvents = new Set();
+// TRACKER CACHE: Keeps a memory of IDs that have ALREADY been announced
+// This completely stops duplicate pings if loops run while Discord's API lags
+const announcedFlightIds = new Set();
 
 async function updateCalendar(client) {
   const calendarChannelId = process.env.CALENDAR_CHANNEL_ID;
@@ -110,7 +110,6 @@ async function checkUpcomingDepartures(client) {
     const departuresChannel = await client.channels.fetch(departuresChannelId);
 
     const now = new Date();
-    const currentActiveIds = new Set();
 
     for (const [, event] of events) {
       if (
@@ -122,14 +121,19 @@ async function checkUpcomingDepartures(client) {
 
       if (!event.scheduledStartAt) continue;
 
-      currentActiveIds.add(event.id);
-
       const timeDiffMs = event.scheduledStartAt.getTime() - now.getTime();
       const hoursUntilDeparture = timeDiffMs / (1000 * 60 * 60);
 
-      if (hoursUntilDeparture <= 20 && hoursUntilDeparture > 0 && !sentAlerts.has(event.id)) {
+      // STRICT CHECK: If this flight ID is already inside our announced memory, skip it entirely!
+      if (announcedFlightIds.has(event.id)) {
+        continue;
+      }
+
+      if (hoursUntilDeparture <= 20 && hoursUntilDeparture > 0) {
         
-        // Format the event start date strictly into DD/MM/YYYY
+        // Add to announced cache BEFORE running any code so it locks instantly
+        announcedFlightIds.add(event.id);
+
         const day = String(event.scheduledStartAt.getDate()).padStart(2, '0');
         const month = String(event.scheduledStartAt.getMonth() + 1).padStart(2, '0');
         const year = event.scheduledStartAt.getFullYear();
@@ -150,25 +154,14 @@ async function checkUpcomingDepartures(client) {
           `<:arrow:1414277373909794937> Please be advised that you must be a member of our [**Roblox Group**](<https://www.roblox.com/communities/16137621/w-zzair-rblx#!/about>) to join flights. On behalf of **Wizz Air**, we wish you a pleasant journey.\n\n` +
           `-# <:link:1414278009573347328> [**${cleanEventName}**](<${event.url}>)`;
 
-        // 3. DISPATCH THE MESSAGE WITH NATIVE CARD EMULATION
+        // 3. DISPATCH THE MESSAGE
         await departuresChannel.send({ 
           content: flightAlertLayout 
         });
 
-        sentAlerts.add(event.id);
-        console.log(`📢 Custom styled plain text alert & ghost-ping deployed for: ${cleanEventName}`);
+        console.log(`📢 Custom alert posted cleanly for flight: ${cleanEventName}`);
       }
     }
-
-    // Clean deleted events out of cache safely
-    for (const savedId of sentAlerts) {
-      if (!currentActiveIds.has(savedId) && lastSeenActiveEvents.has(savedId)) {
-        sentAlerts.delete(savedId);
-        console.log(`🗑️ Event ${savedId} removed from alert cache safely.`);
-      }
-    }
-
-    lastSeenActiveEvents = currentActiveIds;
 
   } catch (err) {
     console.error('Error running departures alert engine:', err.message);
