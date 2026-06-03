@@ -1,5 +1,8 @@
 const { EmbedBuilder } = require('discord.js');
 
+// Track sent alerts in memory so the bot doesn't duplicate them on interval loops
+const sentAlerts = new Set();
+
 async function updateCalendar(client) {
   const calendarChannelId = process.env.CALENDAR_CHANNEL_ID;
   const calendarMessageId = process.env.CALENDAR_MESSAGE_ID;
@@ -11,13 +14,12 @@ async function updateCalendar(client) {
     const events = await guild.scheduledEvents.fetch();
 
     const now = new Date();
-    // Normalize "today" to midnight to avoid hourly/timezone sorting drops
+    // Normalize "today" to midnight to avoid hourly/timezone drops
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const todayEvents    = [];
     const upcomingEvents = [];
 
-    // 1. Process and sort flights into correct chronological buckets
     for (const [, event] of events) {
       if (!event.scheduledStartAt) continue;
       
@@ -33,7 +35,7 @@ async function updateCalendar(client) {
 
       const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
 
-      // Clean, compact text line layout
+      // Clean compact plain text layout line
       const line = `<:Wnewtail:1272656069910462464> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
@@ -43,12 +45,11 @@ async function updateCalendar(client) {
       }
     }
 
-    // Sort upcoming flights so the nearest flight stays at the top
+    // Sort upcoming flights chronologically
     upcomingEvents.sort((a, b) => a.date - b.date);
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // 2. Build the text layout cleanly into the Description container
     let descriptionText = "Below are the upcoming operational sectors:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
@@ -60,13 +61,11 @@ async function updateCalendar(client) {
 
     descriptionText += `**Upcoming Flights:**\n`;
     if (upcomingEvents.length > 0) {
-      // Allows up to 10 upcoming sectors to display comfortably without getting truncated
       descriptionText += upcomingEvents.slice(0, 10).map(f => f.line).join('\n');
     } else {
       descriptionText += 'No upcoming flights scheduled.';
     }
 
-    // 3. Construct the clean Embed Object
     const embed = new EmbedBuilder()
       .setColor(0xC6007E)
       .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
@@ -77,7 +76,6 @@ async function updateCalendar(client) {
 
     const channel = await client.channels.fetch(calendarChannelId);
 
-    // 4. Safely update or publish to the server channel
     if (calendarMessageId) {
       try {
         const msg = await channel.messages.fetch(calendarMessageId);
@@ -94,4 +92,61 @@ async function updateCalendar(client) {
   }
 }
 
-module.exports = { updateCalendar };
+async function checkUpcomingDepartures(client) {
+  const departuresChannelId = process.env.DEPARTURES_CHANNEL_ID;
+  const calendarGuildId     = process.env.CALENDAR_GUILD_ID;
+  const pingRoleId          = process.env.PING_ROLE_ID; 
+  
+  if (!departuresChannelId || !calendarGuildId) return;
+
+  try {
+    const guild = await client.guilds.fetch(calendarGuildId);
+    const events = await guild.scheduledEvents.fetch();
+    const departuresChannel = await client.channels.fetch(departuresChannelId);
+
+    const now = new Date();
+
+    for (const [, event] of events) {
+      if (!event.scheduledStartAt) continue;
+
+      const timeDiffMs = event.scheduledStartAt.getTime() - now.getTime();
+      const hoursUntilDeparture = timeDiffMs / (1000 * 60 * 60);
+
+      // Triggers if a flight departure is within the 20-hour window
+      if (hoursUntilDeparture <= 20 && hoursUntilDeparture > 0 && !sentAlerts.has(event.id)) {
+        
+        const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
+        const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
+        
+        // 1. EXECUTE THE ROLE GHOST PING
+        const pingTarget = pingRoleId ? `<@&${pingRoleId}>` : '@everyone';
+        const ghostPingMessage = await departuresChannel.send({ content: pingTarget });
+        await ghostPingMessage.delete().catch(() => console.log("Ghost ping safe clean"));
+
+        // 2. SEND THE DEPARTURES EMBED ALERT CARD
+        const alertEmbed = new EmbedBuilder()
+          .setColor(0xC6007E)
+          .setAuthor({ name: 'Wizz Air — Flight Departure Alert', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
+          .setTitle(`🛫 Upcoming Scheduled Departure: ${cleanEventName}`)
+          .setDescription(
+            `A new departure has been scheduled! Prepare your flight plans and secure your rosters.\n\n` +
+            `🔹 **Flight:** **${cleanEventName}**\n` +
+            `🔹 **Departure Time:** <t:${unixTimestamp}:t> (<t:${unixTimestamp}:R>)\n` +
+            `🔹 **Date:** <t:${unixTimestamp}:d>\n\n` +
+            `Click on the official Discord event card at the top of the server channel list to mark your attendance!`
+          )
+          .setFooter({ text: 'Wizz Air Operations Team' })
+          .setTimestamp();
+
+        await departuresChannel.send({ embeds: [alertEmbed] });
+
+        sentAlerts.add(event.id);
+        console.log(`📢 20-hour alert & ghost-ping processed for flight: ${cleanEventName}`);
+      }
+    }
+  } catch (err) {
+    console.error('Error running departures alert engine:', err.message);
+  }
+}
+
+module.exports = { updateCalendar, checkUpcomingDepartures };
