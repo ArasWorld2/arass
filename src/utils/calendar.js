@@ -14,7 +14,6 @@ async function updateCalendar(client) {
     const events = await guild.scheduledEvents.fetch();
 
     const now = new Date();
-    // Normalize "today" to midnight to avoid hourly/timezone drops
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const todayEvents    = [];
@@ -35,7 +34,6 @@ async function updateCalendar(client) {
 
       const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
 
-      // Clean compact plain text layout line
       const line = `<:Wnewtail:1272656069910462464> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
@@ -45,7 +43,6 @@ async function updateCalendar(client) {
       }
     }
 
-    // Sort upcoming flights chronologically
     upcomingEvents.sort((a, b) => a.date - b.date);
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -54,7 +51,7 @@ async function updateCalendar(client) {
     
     descriptionText += `**Today (${todayStr}):**\n`;
     if (todayEvents.length > 0) {
-      descriptionText += todayEvents.join('\n') + '\n\n'; // FIXED typo: text now loads correctly
+      descriptionText += todayEvents.join('\n') + '\n\n';
     } else {
       descriptionText += 'No flights scheduled today.\n\n';
     }
@@ -112,7 +109,6 @@ async function checkUpcomingDepartures(client) {
       const timeDiffMs = event.scheduledStartAt.getTime() - now.getTime();
       const hoursUntilDeparture = timeDiffMs / (1000 * 60 * 60);
 
-      // Triggers if a flight departure is within the 20-hour window
       if (hoursUntilDeparture <= 20 && hoursUntilDeparture > 0 && !sentAlerts.has(event.id)) {
         
         const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
@@ -123,7 +119,7 @@ async function checkUpcomingDepartures(client) {
         const ghostPingMessage = await departuresChannel.send({ content: pingTarget });
         await ghostPingMessage.delete().catch(() => console.log("Ghost ping safe clean"));
 
-        // 2. SEND THE DEPARTURES EMBED ALERT CARD
+        // 2. BUILD THE DEPARTURES EMBED ALERT CARD
         const alertEmbed = new EmbedBuilder()
           .setColor(0xC6007E)
           .setAuthor({ name: 'Wizz Air — Flight Departure Alert', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
@@ -133,15 +129,20 @@ async function checkUpcomingDepartures(client) {
             `🔹 **Flight:** **${cleanEventName}**\n` +
             `🔹 **Departure Time:** <t:${unixTimestamp}:t> (<t:${unixTimestamp}:R>)\n` +
             `🔹 **Date:** <t:${unixTimestamp}:d>\n\n` +
-            `Click on the official Discord event card at the top of the server channel list to mark your attendance!`
+            `Click on the official Discord event card attached below to mark your attendance!`
           )
           .setFooter({ text: 'Wizz Air Operations Team' })
           .setTimestamp();
 
-        await departuresChannel.send({ embeds: [alertEmbed] });
+        // 3. SEND THE EMBED AND ATTACH THE EVENT URL
+        // Passing event.url into the content block forces Discord to generate the live interactive event card box right underneath our pink embed card!
+        await departuresChannel.send({ 
+          content: `${event.url}`, 
+          embeds: [alertEmbed] 
+        });
 
         sentAlerts.add(event.id);
-        console.log(`📢 20-hour alert & ghost-ping processed for flight: ${cleanEventName}`);
+        console.log(`📢 20-hour alert & ghost-ping processed with event card for: ${cleanEventName}`);
       }
     }
   } catch (err) {
