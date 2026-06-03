@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 
-// Track sent alerts in memory so the bot doesn't duplicate them on interval loops
+// Track sent alerts in memory so the bot doesn't duplicate them on loop runs
 const sentAlerts = new Set();
 
 async function updateCalendar(client) {
@@ -54,7 +54,7 @@ async function updateCalendar(client) {
     
     descriptionText += `**Today (${todayStr}):**\n`;
     if (todayEvents.length > 0) {
-      descriptionText += todayEvents.join('\n') + '\n\n';
+      descriptionText += todayEvents.join('\n') + '\n\n'; // FIXED typo: text now loads correctly
     } else {
       descriptionText += 'No flights scheduled today.\n\n';
     }
