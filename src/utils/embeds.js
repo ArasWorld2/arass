@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 
-const WIZZ_PURPLE = 0xC6007E;
+// Changed from WIZZ_PURPLE to DOLOMITI_TURQUOISE
+const DOLOMITI_TURQUOISE = '#006570'; 
 
 const ROLES = [
   { key: 'dispatchSupervisor',  label: 'Flight Dispatcher',     emoji: '<:WP_person:1503497022211227850>', max: 1 },
@@ -49,8 +50,11 @@ function buildMainEmbed(flight, allocation) {
   const groundRoleLines = buildRoleLines(GROUND_ROLE_KEYS, allocation);
 
   return new EmbedBuilder()
-    .setColor(WIZZ_PURPLE)
-    .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
+    .setColor(DOLOMITI_TURQUOISE) // Updated color variable
+    .setAuthor({ 
+      name: 'Air Dolomiti — Flight Operations', // Updated company name
+      iconURL: 'https://images.squarespace-cdn.com/content/v1/56c6418840245999ab19b222/1531235334238-A3MRVDR0J270S399ZTLK/Air+Dolomiti.png' // Updated logo
+    })
     .addFields([
       {
         name: '<:WP_takeoff:1503497120760729771> Flight Briefing',
@@ -58,22 +62,22 @@ function buildMainEmbed(flight, allocation) {
       },
       {
         name: '\u200B',
-        value: `A new **Wizz Air** Briefing has been published. **Ensure to** read all **information** contained within this message. **Be reminded** flight info is subject to alter. In order to allocate, interact with the dropdown below.`,
+        value: `A new **Air Dolomiti** Briefing has been published. **Ensure to** read all **information** contained within this message. **Be reminded** flight info is subject to alter. In order to allocate, interact with the dropdown below.`, // Updated reference text
       },
-{
-  name: '\u200B',
-  value: infoLines || '\u200B',
-},
-{
-  name: 'Flight Roles',
-  value: flightRoleLines || '\u200B',
-},
-{
-  name: 'Ground Roles',
-  value: groundRoleLines || '\u200B',
-}
+      {
+        name: '\u200B',
+        value: infoLines || '\u200B',
+      },
+      {
+        name: 'Flight Roles',
+        value: flightRoleLines || '\u200B',
+      },
+      {
+        name: 'Ground Roles',
+        value: groundRoleLines || '\u200B',
+      }
     ])
-    .setFooter({ text: 'Wizz Air Flight Operations • Select a role below to allocate' })
+    .setFooter({ text: 'Air Dolomiti Flight Operations • Select a role below to allocate' }) // Updated footer
     .setTimestamp();
 }
 
