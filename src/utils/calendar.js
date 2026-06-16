@@ -179,11 +179,11 @@ async function checkUpcomingDepartures(client) {
 
         // UPDATED: Now uses ${relativeHammerTime} instead of the hardcoded text string
         const flightAlertLayout = 
-          `### <:takeoff:1414277645134200955> Scheduled Flight\n` +
-          `-# <:blank:1296498991114227763> \`${formattedDate}\` <:calender:1414278015440912415> \n\n` +
-          `> We would like to remind you that flight **${cleanEventName}** is scheduled to depart **${relativeHammerTime}**. For your convenience, all **relevant details for the departure** may be found in the event card shared below. If you have any inquiries or concerns about the upcoming itinerary, please don't hesitate to let us know through contacting **<@1297542149620891788>**.\n` +
-          `<:arrow:1414277373909794937> Please be advised that you must be a member of our [**Roblox Group**](<https://www.roblox.com/communities/16137621/w-zzair-rblx#!/about>) to join flights. On behalf of **Wizz Air**, we wish you a pleasant journey.\n\n` +
-          `-# <:link:1414278009573347328> [**${cleanEventName}**](<${event.url}>)`;
+          `### <:AIRDOMplane:1480019019556847796> Scheduled Flight\n` +
+          `-# <:AIRDOM_blank:1512890372865396746> \`${formattedDate}\` <:calender:1414278015440912415> \n\n` +
+          `> We would like to remind you that flight **${cleanEventName}** is scheduled to depart **${relativeHammerTime}**. For your convenience, all **relevant details for the departure** may be found in the event card shared below. If you have any inquiries or concerns about the upcoming itinerary, please don't hesitate to let us know through contacting **<@1480328342552182835>**.\n` +
+          `<:AIRDOMARR:1480207668504297745> Please be advised that you must be a member of our [**Roblox Group**](<https://www.roblox.com/communities/35331638/Air-Dolomiti-Virtual#!/about>) to join flights. On behalf of **Wizz Air**, we wish you a pleasant journey.\n\n` +
+          `-# <:AIRDOMLINK:1480194781333164113> [**${cleanEventName}**](<${event.url}>)`;
 
         await departuresChannel.send({ 
           content: flightAlertLayout 
