@@ -65,7 +65,7 @@ async function updateCalendar(client) {
 
       const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
 
-      const line = `< **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
+      const line = `<:AIRDOMtail:1480019131246973069> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
