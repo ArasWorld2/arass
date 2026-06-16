@@ -65,7 +65,7 @@ async function updateCalendar(client) {
 
       const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
 
-      const line = `<:AIRDOMtail:1480019131246973069> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
+      const line = `<a:AIRDOMtail:1480019131246973069> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -78,7 +78,8 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    let descriptionText = "Below are the upcoming operational sectors:\n\n";
+    // UPDATED: Wording changed from operational sectors to upcoming flights
+    let descriptionText = "Below are the upcoming flights:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
     if (todayEvents.length > 0) {
@@ -107,7 +108,6 @@ async function updateCalendar(client) {
 
     const channel = await client.channels.fetch(calendarChannelId);
 
-    // FIXED: Corrected title matching validation pattern to look for the exact custom emoji string title
     if (!calendarMessageId) {
       console.log("🔍 No CALENDAR_MESSAGE_ID provided. Searching channel history for an existing calendar...");
       const history = await channel.messages.fetch({ limit: 20 });
@@ -123,7 +123,6 @@ async function updateCalendar(client) {
       }
     }
 
-    // Attempt to edit the existing message
     if (calendarMessageId) {
       try {
         const msg = await channel.messages.fetch(calendarMessageId);
