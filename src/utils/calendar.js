@@ -29,7 +29,7 @@ async function initializeAnnouncedCache(channel) {
 
 async function updateCalendar(client) {
   const calendarChannelId = process.env.CALENDAR_CHANNEL_ID;
-  const calendarMessageId = process.env.CALENDAR_MESSAGE_ID;
+  let calendarMessageId   = process.env.CALENDAR_MESSAGE_ID;
   const calendarGuildId   = process.env.CALENDAR_GUILD_ID;
   if (!calendarChannelId || !calendarGuildId) return;
 
@@ -107,6 +107,19 @@ async function updateCalendar(client) {
 
     const channel = await client.channels.fetch(calendarChannelId);
 
+    // FIXED: If no message ID is provided, try to find an existing calendar message in the channel history
+    if (!calendarMessageId) {
+      console.log("🔍 No CALENDAR_MESSAGE_ID provided. Searching channel history for an existing calendar...");
+      const history = await channel.messages.fetch({ limit: 20 });
+      const existingCalendar = history.find(msg => msg.author.id === client.user.id && msg.embeds.length > 0 && msg.embeds[0].title === '✈️ Flight Calendar');
+      
+      if (existingCalendar) {
+        calendarMessageId = existingCalendar.id;
+        console.log(`📌 Found an existing calendar message! Using ID: ${calendarMessageId}`);
+      }
+    }
+
+    // Attempt to edit the existing message
     if (calendarMessageId) {
       try {
         const msg = await channel.messages.fetch(calendarMessageId);
@@ -176,7 +189,6 @@ async function checkUpcomingDepartures(client) {
         const ghostPingMessage = await departuresChannel.send({ content: pingTarget });
         await ghostPingMessage.delete().catch(() => console.log("Ghost ping safe clean"));
 
-        // REMOVED: The calendar emoji tag after the formatted date string has been pulled out
         const flightAlertLayout = 
           `### <:AIRDOMplane:1480019019556847796> Scheduled Flight\n` +
           `-# <:AIRDOM_blank:1512890372865396746> \`${formattedDate}\` \n\n` +
