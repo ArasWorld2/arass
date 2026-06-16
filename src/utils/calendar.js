@@ -42,7 +42,7 @@ async function updateCalendar(client) {
 
       const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
 
-      const line = `<:Wnewtail:1272656069910462464> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
+      const line = `< **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -72,11 +72,11 @@ async function updateCalendar(client) {
     }
 
     const embed = new EmbedBuilder()
-      .setColor(0xC6007E)
-      .setAuthor({ name: 'Wizz Air — Flight Operations', iconURL: 'https://download.logo.wine/logo/Wizz_Air/Wizz_Air-Logo.wine.png' })
-      .setTitle('<:plane:1414277643314004079> Flight Calendar')
+      .setColor(0x006570)
+      .setAuthor({ name: 'Air Dolomiti — Flight Operations', iconURL: 'https://' })
+      .setTitle(' Flight Calendar')
       .setDescription(descriptionText)
-      .setFooter({ text: 'Wizz Air Operations' })
+      .setFooter({ text: 'Air Dolomiti Operations' })
       .setTimestamp();
 
     const channel = await client.channels.fetch(calendarChannelId);
