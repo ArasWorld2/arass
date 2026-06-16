@@ -100,18 +100,22 @@ async function updateCalendar(client) {
         name: 'Air Dolomiti — Flight Operations',
         iconURL: guild.iconURL({ dynamic: true, size: 128 }) || undefined
       })
-      .setTitle('✈️ Flight Calendar')
+      .setTitle('<:AIRDOMplane:1480019019556847796> Flight Calendar')
       .setDescription(descriptionText)
       .setFooter({ text: 'Air Dolomiti Operations' })
       .setTimestamp();
 
     const channel = await client.channels.fetch(calendarChannelId);
 
-    // FIXED: If no message ID is provided, try to find an existing calendar message in the channel history
+    // FIXED: Corrected title matching validation pattern to look for the exact custom emoji string title
     if (!calendarMessageId) {
       console.log("🔍 No CALENDAR_MESSAGE_ID provided. Searching channel history for an existing calendar...");
       const history = await channel.messages.fetch({ limit: 20 });
-      const existingCalendar = history.find(msg => msg.author.id === client.user.id && msg.embeds.length > 0 && msg.embeds[0].title === '✈️ Flight Calendar');
+      const existingCalendar = history.find(msg => 
+        msg.author.id === client.user.id && 
+        msg.embeds.length > 0 && 
+        msg.embeds[0].title === '<:AIRDOMplane:1480019019556847796> Flight Calendar'
+      );
       
       if (existingCalendar) {
         calendarMessageId = existingCalendar.id;
