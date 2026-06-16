@@ -76,7 +76,7 @@ async function updateCalendar(client) {
         name: 'Air Dolomiti — Flight Operations',
         iconURL: guild.iconURL({ dynamic: true, size: 128 }) || undefined
       })
-      .setTitle('✈️ Flight Calendar')
+      .setTitle('<:AIRDOMplane:1480019019556847796> Flight Calendar')
       .setDescription(descriptionText)
       .setFooter({ text: 'Air Dolomiti Operations' })
       .setTimestamp();
