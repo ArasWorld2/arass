@@ -69,9 +69,13 @@ async function updateCalendar(client) {
       descriptionText += 'No upcoming flights scheduled.';
     }
 
+    // UPDATED: Dynamically fetching the server icon logo here
     const embed = new EmbedBuilder()
       .setColor(0x006570)
-      .setAuthor({ name: 'Air Dolomiti — Flight Operations' }) // FIXED: Removed invalid "https://" string
+      .setAuthor({ 
+        name: 'Air Dolomiti — Flight Operations',
+        iconURL: guild.iconURL({ dynamic: true, size: 128 }) || undefined
+      })
       .setTitle('✈️ Flight Calendar')
       .setDescription(descriptionText)
       .setFooter({ text: 'Air Dolomiti Operations' })
@@ -79,7 +83,6 @@ async function updateCalendar(client) {
 
     const channel = await client.channels.fetch(calendarChannelId);
 
-    // FIXED: Correctly handles bad/deleted message IDs instead of silently failing
     if (calendarMessageId) {
       try {
         const msg = await channel.messages.fetch(calendarMessageId);
@@ -99,10 +102,8 @@ async function updateCalendar(client) {
 }
 
 function startCalendarLoop(client) {
-  // Run once immediately on startup
   updateCalendar(client);
 
-  // Run every 5 minutes (300000ms)
   setInterval(async () => {
     if (isUpdating) return;
     isUpdating = true;
