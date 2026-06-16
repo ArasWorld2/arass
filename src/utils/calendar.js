@@ -1,9 +1,31 @@
 const { EmbedBuilder, GuildScheduledEventStatus } = require('discord.js');
 
 // TRACKER CACHE: Keeps a memory of IDs that have ALREADY been announced
-// This completely stops duplicate pings if loops run while Discord's API lags
 const announcedFlightIds = new Set();
 let isUpdating = false;
+let isCacheInitialized = false;
+
+// Scans the channel history to see what was already posted before a restart
+async function initializeAnnouncedCache(channel) {
+  if (isCacheInitialized) return;
+  try {
+    console.log("🔍 Scanning departure channel history to prevent duplicate alerts...");
+    const messages = await channel.messages.fetch({ limit: 50 });
+    
+    for (const [, msg] of messages) {
+      // Look for discord event links in old messages (e.g., https://discord.com/events/guildId/eventId)
+      const eventLinkRegex = /discord\.com\/events\/\d+\/(\d+)/;
+      const match = msg.content.match(eventLinkRegex);
+      if (match && match[1]) {
+        announcedFlightIds.add(match[1]);
+      }
+    }
+    isCacheInitialized = true;
+    console.log(`✅ Cache initialized. Ignored ${announcedFlightIds.size} previously sent flight alerts.`);
+  } catch (err) {
+    console.error("⚠️ Failed to scan channel history cache:", err.message);
+  }
+}
 
 async function updateCalendar(client) {
   const calendarChannelId = process.env.CALENDAR_CHANNEL_ID;
@@ -115,6 +137,8 @@ async function checkUpcomingDepartures(client) {
     const events = await guild.scheduledEvents.fetch();
     const departuresChannel = await client.channels.fetch(departuresChannelId);
 
+    await initializeAnnouncedCache(departuresChannel);
+
     const now = new Date();
 
     for (const [, event] of events) {
@@ -145,18 +169,19 @@ async function checkUpcomingDepartures(client) {
 
         const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
         
-        // Formats hours cleanly (e.g. "19.5" becomes "20")
-        const displayHours = Math.round(hoursUntilDeparture);
+        // NEW: Formats the specific relative hammer time tag
+        const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
+        const relativeHammerTime = `<t:${unixTimestamp}:R>`;
 
         const pingTarget = pingRoleId ? `<@&${pingRoleId}>` : '@everyone';
         const ghostPingMessage = await departuresChannel.send({ content: pingTarget });
         await ghostPingMessage.delete().catch(() => console.log("Ghost ping safe clean"));
 
-        // UPDATED: New customized reminder format text with dynamic info filled in
+        // UPDATED: Now uses ${relativeHammerTime} instead of the hardcoded text string
         const flightAlertLayout = 
           `### <:takeoff:1414277645134200955> Scheduled Flight\n` +
           `-# <:blank:1296498991114227763> \`${formattedDate}\` <:calender:1414278015440912415> \n\n` +
-          `> We would like to remind you that flight **${cleanEventName}** is scheduled to depart in **${displayHours} hours**. For your convenience, all **relevant details for the departure** may be found in the event card shared below. If you have any inquiries or concerns about the upcoming itinerary, please don't hesitate to let us know through contacting **<@1297542149620891788>**.\n` +
+          `> We would like to remind you that flight **${cleanEventName}** is scheduled to depart **${relativeHammerTime}**. For your convenience, all **relevant details for the departure** may be found in the event card shared below. If you have any inquiries or concerns about the upcoming itinerary, please don't hesitate to let us know through contacting **<@1297542149620891788>**.\n` +
           `<:arrow:1414277373909794937> Please be advised that you must be a member of our [**Roblox Group**](<https://www.roblox.com/communities/16137621/w-zzair-rblx#!/about>) to join flights. On behalf of **Wizz Air**, we wish you a pleasant journey.\n\n` +
           `-# <:link:1414278009573347328> [**${cleanEventName}**](<${event.url}>)`;
 
