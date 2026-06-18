@@ -94,6 +94,7 @@ async function updateCalendar(client) {
       descriptionText += 'No upcoming flights scheduled.';
     }
 
+    // FIXED: Removed .setTimestamp() so it doesn't change the bottom edit time credit context every 5 minutes
     const embed = new EmbedBuilder()
       .setColor(0x006570)
       .setAuthor({ 
@@ -102,8 +103,7 @@ async function updateCalendar(client) {
       })
       .setTitle('<:AIRDOMplane:1480019019556847796> Flight Calendar')
       .setDescription(descriptionText)
-      .setFooter({ text: 'Air Dolomiti Operations' })
-      .setTimestamp();
+      .setFooter({ text: 'Air Dolomiti Operations' });
 
     const channel = await client.channels.fetch(calendarChannelId);
 
@@ -212,11 +212,9 @@ async function checkUpcomingDepartures(client) {
 }
 
 function startCalendarLoop(client) {
-  // Runs immediately ON STARTUP (once per boot/restart cycle)
   updateCalendar(client);
   checkUpcomingDepartures(client); 
 
-  // CONFIRMED 5 MINUTES: Executes cleanly every 300000ms thereafter
   setInterval(async () => {
     if (isUpdating) return;
     isUpdating = true;
@@ -231,4 +229,4 @@ function startCalendarLoop(client) {
   }, 300000);
 }
 
-module.exports = { startCalendarLoop, updateCalendar, checkUpcomingDepartures };
+module.exports = { startCalendarLoop, updateCalendar, checkUpcomingDepartures };  
