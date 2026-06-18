@@ -78,7 +78,6 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    // UPDATED: Wording changed from operational sectors to upcoming flights
     let descriptionText = "Below are the upcoming flights:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
@@ -213,9 +212,11 @@ async function checkUpcomingDepartures(client) {
 }
 
 function startCalendarLoop(client) {
+  // Runs immediately ON STARTUP (once per boot/restart cycle)
   updateCalendar(client);
   checkUpcomingDepartures(client); 
 
+  // CONFIRMED 5 MINUTES: Executes cleanly every 300000ms thereafter
   setInterval(async () => {
     if (isUpdating) return;
     isUpdating = true;
