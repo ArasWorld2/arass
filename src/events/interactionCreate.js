@@ -11,7 +11,7 @@ module.exports = {
         // Strict Guard Clause: Block execution outside the Personnel Server
         if (interaction.guildId !== personnelGuildId) {
             return await interaction.reply({
-                content: '⚠️ This command is restricted and can only be used inside the official Personnel server.',
+                content: '⚠️ This command is restricted and cannot be used here.',
                 ephemeral: true // Only the person clicking sees this error message
             });
         }
