@@ -1,6 +1,6 @@
 const { Events, MessageFlags } = require('discord.js');
 const Allocation = require('../models/Allocation');
-const { buildMainEmbed, buildButtons, getRoleConfig } = require('../utils/embeds');
+const embeds = require('../utils/embeds'); // Import everything as an object safely
 
 module.exports = {
     name: Events.InteractionCreate,
@@ -10,14 +10,11 @@ module.exports = {
         // 1. DROPDOWN HANDLER (String Select Menus)
         // ==========================================
         if (interaction.isStringSelectMenu()) {
-            
-            // ROUTE A: Flight Role Allocation Dropdown
-            // Checks if the dropdown customId matches your flight sheet menu identifier
             if (interaction.customId === 'allocate_role' || interaction.customId.includes('allocate')) {
                 try {
                     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-                    const rawValue = interaction.values[0]; // e.g., 'join_firstOfficer'
+                    const rawValue = interaction.values[0]; 
                     const userId = interaction.user.id;
                     const messageId = interaction.message.id;
                     const roleKey = rawValue.replace('join_', ''); 
@@ -27,15 +24,30 @@ module.exports = {
                         return await interaction.editReply('❌ Flight allocation data not found in the database.');
                     }
 
-                    // Initialize array fields if missing
                     if (!allocation[roleKey]) allocation[roleKey] = [];
                     if (!allocation.queues) allocation.queues = {};
                     if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
 
-                    const roleConfig = typeof getRoleConfig === 'function' ? getRoleConfig(roleKey) : null;
-                    const maxSlots = roleConfig?.max || 1; 
+                    // Safe config extraction to prevent crash if getRoleConfig doesn't exist
+                    let roleLabel = roleKey;
+                    let maxSlots = 1;
 
-                    // TOGGLE LOGIC: If already signed up, remove them
+                    if (embeds && typeof embeds.getRoleConfig === 'function') {
+                        const roleConfig = embeds.getRoleConfig(roleKey);
+                        if (roleConfig) {
+                            roleLabel = roleConfig.label || roleKey;
+                            maxSlots = roleConfig.max || 1;
+                        }
+                    } else if (embeds && embeds.ROLES) {
+                        // Fallback fallback if ROLES array is available instead
+                        const foundRole = embeds.ROLES.find(r => r.key === roleKey);
+                        if (foundRole) {
+                            roleLabel = foundRole.label || roleKey;
+                            maxSlots = foundRole.max || 1;
+                        }
+                    }
+
+                    // Allocation / De-allocation Toggle Logic
                     if (allocation[roleKey].includes(userId)) {
                         allocation[roleKey] = allocation[roleKey].filter(id => id !== userId);
                         
@@ -45,36 +57,37 @@ module.exports = {
                         }
                         
                         await allocation.save();
-                        await interaction.editReply(`🔴 Removed you from **${roleConfig?.label || roleKey}**.`);
+                        await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
                     } else {
-                        // Anti-double-booking: Remove user from any other role on this same flight sheet
+                        // Anti-double-booking
                         for (const key in allocation.toObject()) {
                             if (Array.isArray(allocation[key]) && allocation[key].includes(userId) && key !== 'queues') {
                                 allocation[key] = allocation[key].filter(id => id !== userId);
                             }
                         }
 
-                        // Add to role or queue up if full
                         if (allocation[roleKey].length < maxSlots) {
                             allocation[roleKey].push(userId);
                             await allocation.save();
-                            await interaction.editReply(`✅ Allocated as **${roleConfig?.label || roleKey}**!`);
+                            await interaction.editReply(`✅ Allocated as **${roleLabel}**!`);
                         } else {
                             if (!allocation.queues[roleKey].includes(userId)) {
                                 allocation.queues[roleKey].push(userId);
                                 await allocation.save();
-                                await interaction.editReply(`⏳ Slot full! Added to the queue for **${roleConfig?.label || roleKey}**.`);
+                                await interaction.editReply(`⏳ Slot full! Added to the queue for **${roleLabel}**.`);
                             } else {
                                 await interaction.editReply(`⚠️ You are already in the waiting queue.`);
                             }
                         }
                     }
 
-                    // Live update the original message embed layout
-                    await interaction.message.edit({
-                        embeds: [buildMainEmbed(allocation.flight, allocation)],
-                        components: buildButtons()
-                    }).catch(err => console.error("Failed to edit flight embed:", err));
+                    // Safe refresh
+                    if (embeds && typeof embeds.buildMainEmbed === 'function' && typeof embeds.buildButtons === 'function') {
+                        await interaction.message.edit({
+                            embeds: [embeds.buildMainEmbed(allocation.flight, allocation)],
+                            components: embeds.buildButtons()
+                        }).catch(err => console.error("Failed to edit flight embed:", err));
+                    }
 
                 } catch (error) {
                     console.error("❌ Allocation dropdown error:", error);
@@ -82,10 +95,6 @@ module.exports = {
                 }
                 return;
             }
-
-            // ROUTE B: Future Custom Dropdowns
-            // You can easily add more 'else if' blocks right here for future select menus!
-            // else if (interaction.customId === 'your_future_dropdown') { ... }
         }
 
         // ==========================================
