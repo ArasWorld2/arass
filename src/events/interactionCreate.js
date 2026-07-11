@@ -11,7 +11,7 @@ module.exports = {
         // ==========================================
         if (interaction.isStringSelectMenu()) {
             try {
-                // Instantly defer to stop "interaction failed" completely
+                // Instantly defer to prevent "interaction failed"
                 await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
                 const rawValue = interaction.values[0]; // e.g., 'join_firstOfficer'
@@ -34,7 +34,7 @@ module.exports = {
                 let roleLabel = roleKey;
                 let maxSlots = 1;
 
-                // Safely load your configurations from embeds.js
+                // Safely load configs from embeds.js
                 if (embeds && typeof embeds.getRoleConfig === 'function') {
                     const roleConfig = embeds.getRoleConfig(roleKey);
                     if (roleConfig) {
@@ -83,7 +83,7 @@ module.exports = {
                     }
                 }
 
-                // Instantly re-render the message display numbers
+                // Instantly re-render the embed layout
                 if (embeds && typeof embeds.buildMainEmbed === 'function' && typeof embeds.buildButtons === 'function') {
                     await interaction.message.edit({
                         embeds: [embeds.buildMainEmbed(allocation.flight, allocation)],
@@ -99,11 +99,12 @@ module.exports = {
         }
 
         // ==========================================
-        // 2. SLASH COMMAND HANDLER
+        // 2. HANDLE SLASH COMMANDS
         // ==========================================
         if (!interaction.isChatInputCommand()) return;
 
         const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
+
         if (interaction.guildId !== personnelGuildId) {
             return await interaction.reply({
                 content: '⚠️ This command is restricted and cannot be used here.',
@@ -112,12 +113,16 @@ module.exports = {
         }
 
         const command = interaction.client.commands.get(interaction.commandName);
-        if (!command) return;
+
+        if (!command) {
+            console.error(`No command matching ${interaction.commandName} was found.`);
+            return;
+        }
 
         try {
             await command.execute(interaction);
         } catch (error) {
-            console.error(`Error executing command ${interaction.commandName}:`, error);
+            console.error(`Error executing ${interaction.commandName}:`, error);
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ content: 'There was an error while executing this command!', flags: [MessageFlags.Ephemeral] });
             } else {
