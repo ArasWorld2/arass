@@ -1,52 +1,72 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, REST, Routes } = require('discord.js');
+const fs = require('node:fs');
+const path = require('node:path');
 const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
+require('dotenv').config();
 
+// 1. Initialize Client
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildScheduledEvents,
-  ],
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
 });
 
 client.commands = new Collection();
 
-// Load commands
+// 2. Load Commands Dynamically
 const commandsPath = path.join(__dirname, 'commands');
-for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) {
-  const command = require(path.join(commandsPath, file));
-  client.commands.set(command.data.name, command);
-}
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-// Load events
-const eventsPath = path.join(__dirname, 'events');
-for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
-  const event = require(path.join(eventsPath, file));
-
-  // Handle files that export arrays of events (like scheduledEvents.js)
-  if (Array.isArray(event)) {
-    for (const e of event) {
-      client.on(e.name, (...args) => e.execute(...args, client));
+for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath);
+    if ('data' in command && 'execute' in command) {
+        client.commands.set(command.data.name, command);
     }
-  } else if (event.once) {
-    client.once(event.name, (...args) => event.execute(...args, client));
-  } else {
-    client.on(event.name, (...args) => event.execute(...args, client));
-  }
 }
 
-async function main() {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
-    await client.login(process.env.DISCORD_TOKEN);
-  } catch (err) {
-    console.error('❌ Startup error:', err);
-    process.exit(1);
-  }
+// 3. Load Events Dynamically
+const eventsPath = path.join(__dirname, 'events');
+const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+
+for (const file of eventFiles) {
+    const filePath = path.join(eventsPath, file);
+    const event = require(filePath);
+    if (event.once) {
+        client.once(event.name, (...args) => event.execute(...args));
+    } else {
+        client.on(event.name, (...args) => event.execute(...args));
+    }
 }
 
-main();
+// 4. Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
+    .then(() => console.log('Connected to MongoDB database.'))
+    .catch(err => console.error('MongoDB connection error:', err));
+
+// 5. Unified Ready & Command Sync Event
+client.once('ready', async () => {
+    console.log(`🤖 Logged in as ${client.user.tag}!`);
+
+    try {
+        console.log(`Pushing ${client.commands.size} slash commands directly from Railway environment...`);
+        const token = process.env.DISCORD_TOKEN || process.env.TOKEN;
+        const rest = new REST().setToken(token);
+        
+        const commandJsonList = client.commands.map(cmd => cmd.data.toJSON());
+        
+        await rest.put(
+            Routes.applicationGuildCommands(client.user.id, process.env.PERSONNEL_GUILD_ID),
+            { body: commandJsonList },
+        );
+        
+        console.log('✅ All application (/) commands successfully registered on Discord!');
+    } catch (error) {
+        console.error('❌ Automatic command registration failed:', error);
+    }
+});
+
+// 6. Login Bot
+client.login(process.env.DISCORD_TOKEN || process.env.TOKEN);
