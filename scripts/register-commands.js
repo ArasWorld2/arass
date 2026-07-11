@@ -1,54 +1,66 @@
-const { REST, Routes } = require('discord.js');
-const fs = require('node:fs');
-const path = require('node:path');
-require('dotenv').config();
+const { Events } = require('discord.js');
 
-// Ensure all environment variables exist
-const token = process.env.DISCORD_TOKEN;
-const clientId = process.env.CLIENT_ID;
-const personnelGuildId = process.env.PERSONNEL_GUILD_ID; // Add this to your Railway variables!
+module.exports = {
+    name: Events.InteractionCreate,
+    async execute(interaction) {
+        
+        // ==========================================
+        // 1. HANDLE DROPDOWN MENU INTERACTIONS
+        // ==========================================
+        if (interaction.isStringSelectMenu()) {
+            try {
+                // 1. Instantly defer to stop the 3-second timeout crash
+                await interaction.deferUpdate().catch(() => {});
 
-if (!token || !clientId || !personnelGuildId) {
-    console.error('❌ Missing environment variables. Check DISCORD_TOKEN, CLIENT_ID, and PERSONNEL_GUILD_ID.');
-    process.exit(1);
-}
+                // 2. Route the interaction to your unallocate or postflight system
+                // Depending on how your bot handles custom IDs (e.g., 'allocate_role')
+                const commandName = interaction.customId.includes('unallocate') ? 'unallocate' : 'postflight';
+                const command = interaction.client.commands.get(commandName);
+                
+                if (command && typeof command.executeDropdown === 'function') {
+                    await command.executeDropdown(interaction);
+                } else if (command) {
+                    await command.execute(interaction);
+                } else {
+                    console.log(`[Interaction Warning] Dropdown clicked, but no command handler found for: ${commandName}`);
+                }
 
-const commands = [];
-const commandsPath = path.join(__dirname, '../src/commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+            } catch (error) {
+                console.error("❌ Error processing allocation dropdown:", error);
+            }
+            return; 
+        }
 
-for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-    if ('data' in command && 'execute' in command) {
-        commands.push(command.data.toJSON());
-    } else {
-        console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
-    }
-}
+        // ==========================================
+        // 2. HANDLE SLASH COMMANDS
+        // ==========================================
+        if (!interaction.isChatInputCommand()) return;
 
-const rest = new REST().setToken(token);
+        const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
 
-(async () => {
-    try {
-        console.log(`🔄 Started refreshing ${commands.length} application (/) commands.`);
+        if (interaction.guildId !== personnelGuildId) {
+            return await interaction.reply({
+                content: '⚠️ This command is restricted and cannot be used here.',
+                ephemeral: true 
+            });
+        }
 
-        // 1. CLEAR GLOBAL COMMANDS (Removes them from the calendar/passenger server)
-        console.log('🧹 Clearing any existing global commands...');
-        await rest.put(
-            Routes.applicationCommands(clientId),
-            { body: [] }
-        );
+        const command = interaction.client.commands.get(interaction.commandName);
 
-        // 2. REGISTER GUILD COMMANDS (Restricts them strictly to the Personnel Server)
-        console.log(`📦 Deploying commands to Personnel Guild ID: ${personnelGuildId}`);
-        const data = await rest.put(
-            Routes.applicationGuildCommands(clientId, personnelGuildId),
-            { body: commands }
-        );
+        if (!command) {
+            console.error(`No command matching ${interaction.commandName} was found.`);
+            return;
+        }
 
-        console.log(`✅ Successfully reloaded ${data.length} application (/) commands for the Personnel server only!`);
-    } catch (error) {
-        console.error('❌ Error deploying commands:', error);
-    }
-})();
+        try {
+            await command.execute(interaction);
+        } catch (error) {
+            console.error(`Error executing ${interaction.commandName}:`, error);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+            } else {
+                await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+            }
+        }
+    },
+};
