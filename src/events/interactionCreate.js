@@ -9,35 +9,28 @@ module.exports = {
         // ==========================================
         if (interaction.isStringSelectMenu()) {
             try {
-                // Acknowledge the choice immediately using modern flags to prevent crashes
-                await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
-
-                // Find the main module responsible for processing dropdown submissions
+                // Find the postflight command module
                 const postflight = interaction.client.commands.get('postflight');
                 
-                if (postflight && typeof postflight.handleDropdown === 'function') {
-                    await postflight.handleDropdown(interaction);
-                } else if (postflight && typeof postflight.execute === 'function') {
-                    // Fallback to primary execute if logic is bundled directly
+                if (postflight && typeof postflight.execute === 'function') {
+                    // DO NOT defer here anymore. Let postflight.js handle its own defer/reply!
                     await postflight.execute(interaction);
                 } else {
-                    console.log("⚠️ Dropdown clicked, but 'postflight' command file handler could not be located.");
-                    await interaction.editReply({ content: "❌ Allocation module failed to process this request." }).catch(() => {});
+                    console.log("⚠️ Dropdown clicked, but 'postflight' handler could not be executed.");
                 }
             } catch (error) {
                 console.error("❌ Error processing allocation dropdown:", error);
             }
-            return; // Exit out early so it doesn't try to parse as a Slash Command
+            return; 
         }
 
         // ==========================================
-        // 2. HANDLE SLASH COMMANDS (e.g., /unallocate)
+        // 2. HANDLE SLASH COMMANDS
         // ==========================================
         if (!interaction.isChatInputCommand()) return;
 
         const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
 
-        // Strict Guard Clause: Block admin slash execution outside the Personnel Server
         if (interaction.guildId !== personnelGuildId) {
             return await interaction.reply({
                 content: '⚠️ This command is restricted and cannot be used here.',
