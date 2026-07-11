@@ -1,18 +1,19 @@
 const { REST, Routes } = require('discord.js');
 const fs = require('node:fs');
 const path = require('node:path');
-require('dotenv').config(); // Loads variables from your .env file
+require('dotenv').config();
 
-// 1. Configuration - Ensure these are set in your .env file
-const clientId = process.env.CLIENT_ID;
-const guildId = process.env.GUILD_ID; // Your private/testing server ID
+// Ensure all environment variables exist
 const token = process.env.DISCORD_TOKEN;
+const clientId = process.env.CLIENT_ID;
+const personnelGuildId = process.env.PERSONNEL_GUILD_ID; // Add this to your Railway variables!
 
-// SET THIS TO true FIRST TO CLEAR COOLDOWNS FROM THE MAIN SERVER, THEN SET TO false
-const CLEAR_GLOBAL = true; 
+if (!token || !clientId || !personnelGuildId) {
+    console.error('❌ Missing environment variables. Check DISCORD_TOKEN, CLIENT_ID, and PERSONNEL_GUILD_ID.');
+    process.exit(1);
+}
 
 const commands = [];
-// Grab all the command files from your commands directory
 const commandsPath = path.join(__dirname, '../src/commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
@@ -26,33 +27,28 @@ for (const file of commandFiles) {
     }
 }
 
-// Construct and prepare an instance of the REST module
 const rest = new REST().setToken(token);
 
 (async () => {
     try {
-        if (CLEAR_GLOBAL) {
-            console.log('Started clearing accidental global application (/) commands...');
-            
-            // This sends an empty array to the global route, deleting them everywhere
-            await rest.put(
-                Routes.applicationCommands(clientId),
-                { body: [] }
-            );
-            
-            console.log('Successfully cleared global commands! Change CLEAR_GLOBAL to false to deploy to your guild.');
-        } else {
-            console.log(`Started refreshing ${commands.length} application (/) commands for Guild: ${guildId}...`);
+        console.log(`🔄 Started refreshing ${commands.length} application (/) commands.`);
 
-            // This deploys them ONLY to your specific private server ID
-            const data = await rest.put(
-                Routes.applicationGuildCommands(clientId, guildId),
-                { body: commands }
-            );
+        // 1. CLEAR GLOBAL COMMANDS (Removes them from the calendar/passenger server)
+        console.log('🧹 Clearing any existing global commands...');
+        await rest.put(
+            Routes.applicationCommands(clientId),
+            { body: [] }
+        );
 
-            console.log(`Successfully reloaded ${data.length} application (/) commands locally!`);
-        }
+        // 2. REGISTER GUILD COMMANDS (Restricts them strictly to the Personnel Server)
+        console.log(`📦 Deploying commands to Personnel Guild ID: ${personnelGuildId}`);
+        const data = await rest.put(
+            Routes.applicationGuildCommands(clientId, personnelGuildId),
+            { body: commands }
+        );
+
+        console.log(`✅ Successfully reloaded ${data.length} application (/) commands for the Personnel server only!`);
     } catch (error) {
-        console.error(error);
+        console.error('❌ Error deploying commands:', error);
     }
 })();
