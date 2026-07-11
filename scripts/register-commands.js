@@ -1,66 +1,46 @@
-const { Events } = require('discord.js');
+const { REST, Routes } = require('discord.js');
+const fs = require('node:fs');
+const path = require('node:path');
+require('dotenv').config();
 
-module.exports = {
-    name: Events.InteractionCreate,
-    async execute(interaction) {
-        
-        // ==========================================
-        // 1. HANDLE DROPDOWN MENU INTERACTIONS
-        // ==========================================
-        if (interaction.isStringSelectMenu()) {
-            try {
-                // 1. Instantly defer to stop the 3-second timeout crash
-                await interaction.deferUpdate().catch(() => {});
+const commands = [];
+const commandsPath = path.join(__dirname, '../src/commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-                // 2. Route the interaction to your unallocate or postflight system
-                // Depending on how your bot handles custom IDs (e.g., 'allocate_role')
-                const commandName = interaction.customId.includes('unallocate') ? 'unallocate' : 'postflight';
-                const command = interaction.client.commands.get(commandName);
-                
-                if (command && typeof command.executeDropdown === 'function') {
-                    await command.executeDropdown(interaction);
-                } else if (command) {
-                    await command.execute(interaction);
-                } else {
-                    console.log(`[Interaction Warning] Dropdown clicked, but no command handler found for: ${commandName}`);
-                }
+for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath);
+    if ('data' in command && 'execute' in command) {
+        commands.push(command.data.toJSON());
+        console.log(`Loaded command: /${command.data.name}`);
+    }
+}
 
-            } catch (error) {
-                console.error("❌ Error processing allocation dropdown:", error);
-            }
-            return; 
-        }
+const token = process.env.DISCORD_TOKEN || process.env.TOKEN;
 
-        // ==========================================
-        // 2. HANDLE SLASH COMMANDS
-        // ==========================================
-        if (!interaction.isChatInputCommand()) return;
+if (!token) {
+    console.error("❌ ERROR: No bot token found in your environment variables!");
+    process.exit(1);
+}
 
-        const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
+// Extract the Client ID directly from the Discord Token structure
+const clientId = Buffer.from(token.split('.')[0], 'base64').toString('utf-8');
+const guildId = process.env.PERSONNEL_GUILD_ID;
 
-        if (interaction.guildId !== personnelGuildId) {
-            return await interaction.reply({
-                content: '⚠️ This command is restricted and cannot be used here.',
-                ephemeral: true 
-            });
-        }
+const rest = new REST().setToken(token);
 
-        const command = interaction.client.commands.get(interaction.commandName);
+(async () => {
+    try {
+        console.log(`Started refreshing ${commands.length} application (/) commands...`);
 
-        if (!command) {
-            console.error(`No command matching ${interaction.commandName} was found.`);
-            return;
-        }
+        // Deploy to your personnel guild server
+        const data = await rest.put(
+            Routes.applicationGuildCommands(clientId, guildId),
+            { body: commands },
+        );
 
-        try {
-            await command.execute(interaction);
-        } catch (error) {
-            console.error(`Error executing ${interaction.commandName}:`, error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
-            } else {
-                await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-            }
-        }
-    },
-};
+        console.log(`✅ Successfully reloaded ${data.length} application (/) commands.`);
+    } catch (error) {
+        console.error("❌ Failed to deploy commands:", error);
+    }
+})();
