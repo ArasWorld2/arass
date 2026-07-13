@@ -65,7 +65,7 @@ async function updateCalendar(client) {
 
       const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
 
-      const line = `<a:AIRDOMtail:1480019131246973069> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
+      const line = `<:Wnewtail:1272656069910462464> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -96,14 +96,14 @@ async function updateCalendar(client) {
 
     // FIXED: Removed .setTimestamp() so it doesn't change the bottom edit time credit context every 5 minutes
     const embed = new EmbedBuilder()
-      .setColor(0x006570)
+      .setColor(0xC6007E)
       .setAuthor({ 
-        name: 'Air Dolomiti — Flight Operations',
+        name: 'Wizz Air — Flight Operations',
         iconURL: guild.iconURL({ dynamic: true, size: 128 }) || undefined
       })
-      .setTitle('<:AIRDOMplane:1480019019556847796> Flight Calendar')
+      .setTitle('<:plane:1414277643314004079> Flight Calendar')
       .setDescription(descriptionText)
-      .setFooter({ text: 'Air Dolomiti Operations' });
+      .setFooter({ text: 'Wizz Air Operations' });
 
     const channel = await client.channels.fetch(calendarChannelId);
 
@@ -113,7 +113,7 @@ async function updateCalendar(client) {
       const existingCalendar = history.find(msg => 
         msg.author.id === client.user.id && 
         msg.embeds.length > 0 && 
-        msg.embeds[0].title === '<:AIRDOMplane:1480019019556847796> Flight Calendar'
+        msg.embeds[0].title === '<:plane:1414277643314004079> Flight Calendar'
       );
       
       if (existingCalendar) {
@@ -192,11 +192,11 @@ async function checkUpcomingDepartures(client) {
         await ghostPingMessage.delete().catch(() => console.log("Ghost ping safe clean"));
 
         const flightAlertLayout = 
-          `### <:AIRDOMplane:1480019019556847796> Scheduled Flight\n` +
-          `-# <:AIRDOM_blank:1512890372865396746> \`${formattedDate}\` \n\n` +
-          `> We would like to remind you that flight **${cleanEventName}** is scheduled to depart **${relativeHammerTime}**. For your convenience, all **relevant details for the departure** may be found in the event card shared below. If you have any inquiries or concerns about the upcoming itinerary, please don't hesitate to let us know through contacting **<@1480328342552182835>**.\n` +
-          `<:AIRDOMARR:1480207668504297745> Please be advised that you must be a member of our [**Roblox Group**](<https://www.roblox.com/communities/35331638/Air-Dolomiti-Virtual#!/about>) to join flights. On behalf of **Air Dolomiti**, we wish you a pleasant journey.\n\n` +
-          `-# <:AIRDOMLINK:1480194781333164113> [**${cleanEventName}**](<${event.url}>)`;
+          `### <:takeoff:1414277645134200955> Scheduled Flight\n` +
+          `-# <:blank:1296498991114227763> \`${formattedDate}\` \n\n` +
+          `> We would like to remind you that flight **${cleanEventName}** is scheduled to depart **${relativeHammerTime}**. For your convenience, all **relevant details for the departure** may be found in the event card shared below. If you have any inquiries or concerns about the upcoming itinerary, please don't hesitate to let us know through contacting **<@1297542149620891788>**.\n` +
+          ` <:announcement:1414277746233708669> Please be advised that you must be a member of our [**Roblox Group**](<https://www.roblox.com/communities/822510972/w-zzair-rblx#!/about>) to join flights. On behalf of **Air Dolomiti**, we wish you a pleasant journey.\n\n` +
+          `-# <:link:1414278009573347328> [**${cleanEventName}**](<${event.url}>)`;
 
         await departuresChannel.send({ 
           content: flightAlertLayout 
