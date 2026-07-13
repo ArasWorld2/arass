@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 
 // Changed from WIZZ_PURPLE to DOLOMITI_TURQUOISE
-const DOLOMITI_TURQUOISE = 'rgb(211, 0, 127)'; 
+const DOLOMITI_TURQUOISE = '#d3007f'; 
 
 const ROLES = [
   { key: 'dispatchSupervisor',  label: 'Flight Dispatcher',     emoji: '<:WP_person:1513933547474522264>', max: 1 },
