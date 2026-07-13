@@ -57,7 +57,7 @@ function buildMainEmbed(flight, allocation) {
     })
     .addFields([
       {
-        name: '<:WP_takeoff:1503497120760729771> Flight Briefing',
+        name: '<:WP_takeoff:1513933269064745061> Flight Briefing',
         value: `__**${flight.number || 'N/A'}**__ • ${flight.date || new Date().toDateString()}`,
       },
       {
