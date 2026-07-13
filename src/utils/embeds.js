@@ -1,21 +1,21 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 
 // Changed from WIZZ_PURPLE to DOLOMITI_TURQUOISE
-const DOLOMITI_TURQUOISE = '#9b06b9'; 
+const DOLOMITI_TURQUOISE = 'rgb(211, 0, 127)'; 
 
 const ROLES = [
-  { key: 'dispatchSupervisor',  label: 'Flight Dispatcher',     emoji: '<:WP_person:1503497022211227850>', max: 1 },
-  { key: 'flightSupervisor',    label: 'Flight Supervisor',      emoji: '<:WP_person:1503497022211227850>', max: 2 },
-  { key: 'captain',             label: 'Captain',                emoji: '<:WP_man:1503497042071257249>',    max: 1 },
-  { key: 'firstOfficer',        label: 'First Officer',          emoji: '<:WP_link:1503497040406253769>',   max: 1 },
-  { key: 'purser',              label: 'Senior Cabin Attendant', emoji: '<:WP_telephone:1503497077588496614>', max: 1 },
-  { key: 'cabinCrew',           label: 'Cabin Crew',             emoji: '<:WP_people:1503497020311343234>', max: 4 },
-  { key: 'groundHandling',      label: 'Turnaround Manager',     emoji: '<:WP_helpdesk:1503497171243110440>', max: 1 },
-  { key: 'tarmacSupervisor',    label: 'Ground Crew',            emoji: '<:WP_passenger:1503497017295376514>', max: 3 },
-  { key: 'dispatchCoordinator', label: 'Customer Service',       emoji: '<:WP_share:1503497105908437032>',  max: 3 },
-  { key: 'bagDropAgent',        label: 'Bag Drop Agent',         emoji: '<:WP_share:1503497105908437032>', max: 3 },
-  { key: 'gateAgent',           label: 'Gate Agent',             emoji: '<:WP_helpdesk:1503497171243110440>', max: 1 },
-  { key: 'loungeAttendant',     label: 'Lounge Attendant',       emoji: '<:WP_link:1503497040406253769>', max: 2 },
+  { key: 'dispatchSupervisor',  label: 'Flight Dispatcher',     emoji: '<:WP_person:1513933547474522264>', max: 1 },
+  { key: 'flightSupervisor',    label: 'Flight Supervisor',      emoji: '<:WP_person:1513933547474522264>', max: 2 },
+  { key: 'captain',             label: 'Captain',                emoji: '<:WP_man:1513933680563982356>',    max: 1 },
+  { key: 'firstOfficer',        label: 'First Officer',          emoji: '<:WP_link:1513933564255670383>',   max: 1 },
+  { key: 'purser',              label: 'Senior Cabin Attendant', emoji: '<:WP_telephone:1513933092811964557>', max: 1 },
+  { key: 'cabinCrew',           label: 'Cabin Crew',             emoji: '<:WP_people:1513933609776451604>', max: 4 },
+  { key: 'groundHandling',      label: 'Turnaround Manager',     emoji: '<:WP_helpdesk:1513933829398855740>', max: 1 },
+  { key: 'tarmacSupervisor',    label: 'Ground Crew',            emoji: '<:WP_passenger:1513933646371754034>', max: 3 },
+  { key: 'dispatchCoordinator', label: 'Customer Service',       emoji: '<:WP_share:1513933370046808174>',  max: 3 },
+  { key: 'bagDropAgent',        label: 'Bag Drop Agent',         emoji: '<:WP_share:1513933370046808174>', max: 3 },
+  { key: 'gateAgent',           label: 'Gate Agent',             emoji: '<:WP_helpdesk:1513933829398855740>', max: 1 },
+  { key: 'loungeAttendant',     label: 'Lounge Attendant',       emoji: '<:WP_link:1513933564255670383>', max: 2 },
 ];
 
 const FLIGHT_ROLE_KEYS = ['dispatchSupervisor', 'flightSupervisor', 'captain', 'firstOfficer', 'purser', 'cabinCrew', 'groundHandling', 'tarmacSupervisor'];
@@ -77,7 +77,7 @@ function buildMainEmbed(flight, allocation) {
         value: groundRoleLines || '\u200B',
       }
     ])
-    .setFooter({ text: 'Air Dolomiti Flight Operations • Select a role below to allocate' }) // Updated footer
+    .setFooter({ text: 'Wizz Air Flight Operations • Select a role below to allocate' }) // Updated footer
     .setTimestamp();
 }
 
