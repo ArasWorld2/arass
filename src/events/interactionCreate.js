@@ -60,6 +60,16 @@ module.exports = {
                     
                     await allocation.save();
                     await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
+
+                    // Send Log: De-allocated
+                    await sendLog(interaction, {
+                        action: '🔴 De-allocated',
+                        user: interaction.user,
+                        role: roleLabel,
+                        flightNumber: allocation.flight?.number || 'Unknown',
+                        messageId
+                    });
+
                 } else {
                     // Prevent double-booking across different slots
                     for (const key in allocation.toObject()) {
@@ -72,11 +82,31 @@ module.exports = {
                         allocation[roleKey].push(userId);
                         await allocation.save();
                         await interaction.editReply(`✅ Allocated as **${roleLabel}**!`);
+
+                        // Send Log: Allocated
+                        await sendLog(interaction, {
+                            action: '🟢 Allocated',
+                            user: interaction.user,
+                            role: roleLabel,
+                            flightNumber: allocation.flight?.number || 'Unknown',
+                            messageId
+                        });
+
                     } else {
                         if (!allocation.queues[roleKey].includes(userId)) {
                             allocation.queues[roleKey].push(userId);
                             await allocation.save();
                             await interaction.editReply(`⏳ Slot full! Added to the queue for **${roleLabel}**.`);
+
+                            // Send Log: Added to Queue
+                            await sendLog(interaction, {
+                                action: '⏳ Queue Joined',
+                                user: interaction.user,
+                                role: roleLabel,
+                                flightNumber: allocation.flight?.number || 'Unknown',
+                                messageId
+                            });
+
                         } else {
                             await interaction.editReply(`⚠️ You are already in the waiting queue.`);
                         }
@@ -131,3 +161,15 @@ module.exports = {
         }
     },
 };
+
+// Helper function to process logs exactly like unallocate.js
+async function sendLog(interaction, { action, user, role, flightNumber, messageId }) {
+    const logChannelId = process.env.LOG_CHANNEL_ID;
+    if (!logChannelId) return;
+    try {
+        const channel = await interaction.client.channels.fetch(logChannelId);
+        await channel.send(`${action} | **Flight ${flightNumber}** | **${role}** | User: <@${user.id}> | [Jump](https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${messageId})`);
+    } catch (err) {
+        console.warn('Could not send dropdown interaction log:', err.message);
+    }
+}
