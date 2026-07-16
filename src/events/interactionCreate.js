@@ -71,12 +71,8 @@ module.exports = {
                     });
 
                 } else {
-                    // Prevent double-booking across different slots
-                    for (const key in allocation.toObject()) {
-                        if (Array.isArray(allocation[key]) && allocation[key].includes(userId) && key !== 'queues') {
-                            allocation[key] = allocation[key].filter(id => id !== userId);
-                        }
-                    }
+                    // ALL DOUBLE-BOOKING RESTRICTIONS REMOVED.
+                    // Users can now allocate to multiple roles at the same time.
 
                     if (allocation[roleKey].length < maxSlots) {
                         allocation[roleKey].push(userId);
