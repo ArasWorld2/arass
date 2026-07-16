@@ -78,11 +78,11 @@ module.exports = {
                         await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
 
                         // DM: User who unallocated
-                        await sendDM(interaction.user, `✈️ You have unallocated from **${roleLabel}** for **${flightNum}**.`);
+                        await sendDM(interaction.user, `<:WP_x:1513933010267799716> You have unallocated from **${roleLabel}** for **${flightNum}**.`);
 
                         // DM: The user promoted from the queue (if any)
                         if (promotedUser) {
-                            await sendDM(promotedUser, `✈️ You have been allocated as **${roleLabel}** for **${flightNum}**.`);
+                            await sendDM(promotedUser, `<:WP_thumbsup:1513933060452651120> You have been allocated as **${roleLabel}** for **${flightNum}**.`);
                         }
 
                         // Log active removal
@@ -102,7 +102,7 @@ module.exports = {
                         await interaction.editReply(`🔴 Removed you from the queue for **${roleLabel}**.`);
 
                         // DM: Left queue
-                        await sendDM(interaction.user, `✈️ You have left the queue for **${roleLabel}** on **${flightNum}**.`);
+                        await sendDM(interaction.user, `<:WP_x:1513933010267799716> You have left the queue for **${roleLabel}** on **${flightNum}**.`);
 
                         // Log queue removal
                         await sendLog(interaction, {
@@ -125,7 +125,7 @@ module.exports = {
                         await interaction.editReply(`✅ Allocated as **${roleLabel}**!`);
 
                         // DM: Allocated successfully
-                        await sendDM(interaction.user, `✈️ You have been allocated as **${roleLabel}** for **${flightNum}**.`);
+                        await sendDM(interaction.user, `<:WP_check:1513934023251198087> You have been allocated as **${roleLabel}** for **${flightNum}**.`);
 
                         // Send Log: Allocated
                         await sendLog(interaction, {
@@ -144,7 +144,7 @@ module.exports = {
                             await interaction.editReply(`⏳ Slot full! Added to the queue for **${roleLabel}**.`);
 
                             // DM: Added to Queue
-                            await sendDM(interaction.user, `⏳ The role **${roleLabel}** is full. You have been added to the queue.`);
+                            await sendDM(interaction.user, `<:WP_telephone:1513933092811964557> The role **${roleLabel}** is full. You have been added to the queue.`);
 
                             // Send Log: Added to Queue
                             await sendLog(interaction, {
@@ -156,7 +156,7 @@ module.exports = {
                             });
 
                         } else {
-                            await interaction.editReply(`⚠️ You are already in the waiting queue.`);
+                            await interaction.editReply(`<:WP_x:1513933010267799716> You are already in the waiting queue.`);
                         }
                     }
                 }
