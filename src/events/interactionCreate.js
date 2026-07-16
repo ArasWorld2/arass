@@ -51,6 +51,7 @@ module.exports = {
 
                 const isAllocated = allocation[roleKey].includes(userId);
                 const isInQueue = allocation.queues[roleKey].includes(userId);
+                const flightNum = allocation.flight?.number || 'Unknown';
 
                 // ==========================================
                 // LEAVING: If they are allocated OR in queue
@@ -62,20 +63,34 @@ module.exports = {
                         allocation[roleKey] = allocation[roleKey].filter(id => id !== userId);
                         
                         // 2. Promote the next person from queue if there is one
+                        let promotedUser = null;
                         if (allocation.queues[roleKey].length > 0) {
-                            const nextUser = allocation.queues[roleKey].shift();
-                            allocation[roleKey].push(nextUser);
+                            const nextUserId = allocation.queues[roleKey].shift();
+                            allocation[roleKey].push(nextUserId);
+                            
+                            // Fetch user object to send them a DM about being promoted
+                            try {
+                                promotedUser = await interaction.client.users.fetch(nextUserId);
+                            } catch {}
                         }
                         
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
+
+                        // DM: User who unallocated
+                        await sendDM(interaction.user, `✈️ You have unallocated from **${roleLabel}** for **${flightNum}**.`);
+
+                        // DM: The user promoted from the queue (if any)
+                        if (promotedUser) {
+                            await sendDM(promotedUser, `✈️ You have been allocated as **${roleLabel}** for **${flightNum}**.`);
+                        }
 
                         // Log active removal
                         await sendLog(interaction, {
                             action: '🔴 De-allocated',
                             user: interaction.user,
                             role: roleLabel,
-                            flightNumber: allocation.flight?.number || 'Unknown',
+                            flightNumber: flightNum,
                             messageId
                         });
 
@@ -86,12 +101,15 @@ module.exports = {
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from the queue for **${roleLabel}**.`);
 
+                        // DM: Left queue
+                        await sendDM(interaction.user, `✈️ You have left the queue for **${roleLabel}** on **${flightNum}**.`);
+
                         // Log queue removal
                         await sendLog(interaction, {
                             action: '🔴 Left Queue',
                             user: interaction.user,
                             role: roleLabel,
-                            flightNumber: allocation.flight?.number || 'Unknown',
+                            flightNumber: flightNum,
                             messageId
                         });
                     }
@@ -106,12 +124,15 @@ module.exports = {
                         await allocation.save();
                         await interaction.editReply(`✅ Allocated as **${roleLabel}**!`);
 
+                        // DM: Allocated successfully
+                        await sendDM(interaction.user, `✈️ You have been allocated as **${roleLabel}** for **${flightNum}**.`);
+
                         // Send Log: Allocated
                         await sendLog(interaction, {
                             action: '🟢 Allocated',
                             user: interaction.user,
                             role: roleLabel,
-                            flightNumber: allocation.flight?.number || 'Unknown',
+                            flightNumber: flightNum,
                             messageId
                         });
 
@@ -122,12 +143,15 @@ module.exports = {
                             await allocation.save();
                             await interaction.editReply(`⏳ Slot full! Added to the queue for **${roleLabel}**.`);
 
+                            // DM: Added to Queue
+                            await sendDM(interaction.user, `⏳ The role **${roleLabel}** is full. You have been added to the queue.`);
+
                             // Send Log: Added to Queue
                             await sendLog(interaction, {
                                 action: '⏳ Queue Joined',
                                 user: interaction.user,
                                 role: roleLabel,
-                                flightNumber: allocation.flight?.number || 'Unknown',
+                                flightNumber: flightNum,
                                 messageId
                             });
 
@@ -185,6 +209,15 @@ module.exports = {
         }
     },
 };
+
+// Helper function to send direct messages safely
+async function sendDM(user, messageText) {
+    try {
+        await user.send(messageText);
+    } catch (err) {
+        console.warn(`Could not DM user ${user.tag || user.id}: DMs are likely closed.`);
+    }
+}
 
 // Helper function to process logs exactly like unallocate.js
 async function sendLog(interaction, { action, user, role, flightNumber, messageId }) {
