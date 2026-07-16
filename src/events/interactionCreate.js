@@ -49,30 +49,57 @@ module.exports = {
                     }
                 }
 
-                // Toggle Allocation / De-allocation
-                if (allocation[roleKey].includes(userId)) {
-                    allocation[roleKey] = allocation[roleKey].filter(id => id !== userId);
-                    
-                    if (allocation.queues[roleKey].length > 0) {
-                        const nextUser = allocation.queues[roleKey].shift();
-                        allocation[roleKey].push(nextUser);
-                    }
-                    
-                    await allocation.save();
-                    await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
+                const isAllocated = allocation[roleKey].includes(userId);
+                const isInQueue = allocation.queues[roleKey].includes(userId);
 
-                    // Send Log: De-allocated
-                    await sendLog(interaction, {
-                        action: '🔴 De-allocated',
-                        user: interaction.user,
-                        role: roleLabel,
-                        flightNumber: allocation.flight?.number || 'Unknown',
-                        messageId
-                    });
+                // ==========================================
+                // LEAVING: If they are allocated OR in queue
+                // ==========================================
+                if (isAllocated || isInQueue) {
+                    
+                    if (isAllocated) {
+                        // 1. Remove from active slot
+                        allocation[roleKey] = allocation[roleKey].filter(id => id !== userId);
+                        
+                        // 2. Promote the next person from queue if there is one
+                        if (allocation.queues[roleKey].length > 0) {
+                            const nextUser = allocation.queues[roleKey].shift();
+                            allocation[roleKey].push(nextUser);
+                        }
+                        
+                        await allocation.save();
+                        await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
+
+                        // Log active removal
+                        await sendLog(interaction, {
+                            action: '🔴 De-allocated',
+                            user: interaction.user,
+                            role: roleLabel,
+                            flightNumber: allocation.flight?.number || 'Unknown',
+                            messageId
+                        });
+
+                    } else if (isInQueue) {
+                        // 1. Simply remove them from the queue list
+                        allocation.queues[roleKey] = allocation.queues[roleKey].filter(id => id !== userId);
+                        
+                        await allocation.save();
+                        await interaction.editReply(`🔴 Removed you from the queue for **${roleLabel}**.`);
+
+                        // Log queue removal
+                        await sendLog(interaction, {
+                            action: '🔴 Left Queue',
+                            user: interaction.user,
+                            role: roleLabel,
+                            flightNumber: allocation.flight?.number || 'Unknown',
+                            messageId
+                        });
+                    }
 
                 } else {
-                    // ALL DOUBLE-BOOKING RESTRICTIONS REMOVED.
-                    // Users can now allocate to multiple roles at the same time.
+                    // ==========================================
+                    // JOINING: If they are not in either list
+                    // ==========================================
 
                     if (allocation[roleKey].length < maxSlots) {
                         allocation[roleKey].push(userId);
@@ -89,6 +116,7 @@ module.exports = {
                         });
 
                     } else {
+                        // Try adding to queue if they aren't already there
                         if (!allocation.queues[roleKey].includes(userId)) {
                             allocation.queues[roleKey].push(userId);
                             await allocation.save();
