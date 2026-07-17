@@ -33,7 +33,7 @@ module.exports = {
 
         // 3. Build the Wizz Air Embed Layout
         const inviteEmbed = new EmbedBuilder()
-            .setColor('#7209B7') // Wizz-themed purple color (change hex code if you want pink/magenta)
+            .setColor('#d3007f') // Wizz-themed purple color (change hex code if you want pink/magenta)
             .setTitle('<:care:1414277804555632801> Application Status')
             .setDescription('<:blank:1296498991114227763> ``Fly Greenest`` <:flygreen:1272674839441965056>\n\n> Congratulations, on behalf of the **Wizz Recruitment Department**, we are pleased to announce that you have passed our direct entry opportunity and you\'re officially cleared to start building your career with us here at Wizz.\n\n<:arrow:1414277373909794937> To begin your career, we have an extensive two weeks prepared ahead for you whilst presenting one of the most challenging yet realistic training programs, designed individually depending on each department and different strengths. Once again, **congratulations**!\n\n> <:click:1414277937187782818> **[Academy Invitation](https://discord.gg/GZPhEGTBEA)**\n> -# This link is strictly protected under our internal regulations, and leaking to third-parties will result in a **blacklist** from our organisation. Ensure that you follow the instructions provided to verify and continue your journey within the academy.')
             .setFooter({ 
