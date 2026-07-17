@@ -11,8 +11,8 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        // CHANGED: Removed MessageFlags.Ephemeral so the message is public to everyone!
-        await interaction.deferReply();
+        // FIXED: Forcefully set ephemeral to false so it explicitly signals a public response
+        await interaction.deferReply({ ephemeral: false });
 
         try {
             const user = interaction.options.getUser('target') || interaction.user;
