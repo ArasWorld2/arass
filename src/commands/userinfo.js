@@ -11,47 +11,35 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        // 1. Instantly acknowledge the interaction to prevent expiration timeouts
+        // 1. Instantly respond to Discord to let it know we are working on it
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         try {
-            // Default to the user running the command if no target is specified
             const user = interaction.options.getUser('target') || interaction.user;
-            let member;
             
-            try {
-                member = await interaction.guild.members.fetch(user.id);
-            } catch (err) {
-                return await interaction.editReply('❌ Could not fetch server member data for this user.');
+            // Fetch member data locally without requesting the entire server database
+            const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+            
+            if (!member) {
+                return await interaction.editReply('❌ This user is not currently a member of this server.');
             }
 
-            // Calculate timestamps and dates
+            // Timestamps
             const createdTimestamp = Math.floor(user.createdTimestamp / 1000);
             const joinedTimestamp = Math.floor(member.joinedTimestamp / 1000);
 
-            // Calculate Join Position safely
-            let joinPosition = 'N/A';
-            try {
-                const allMembers = await interaction.guild.members.fetch({ withPresences: false });
-                const sortedMembers = [...allMembers.values()].sort((a, b) => (a.joinedTimestamp || 0) - (b.joinedTimestamp || 0));
-                joinPosition = sortedMembers.findIndex(m => m.id === user.id) + 1;
-            } catch (cacheErr) {
-                console.warn('[UserInfo Warning] Could not calculate join placement order:', cacheErr.message);
-            }
-
-            // Extract and format roles
+            // Format roles cleanly
             const roles = member.roles.cache
-                .filter(role => role.id !== interaction.guild.id) // Filter out @everyone
+                .filter(role => role.id !== interaction.guild.id)
                 .map(role => role.toString());
             const displayRoles = roles.length > 0 ? roles.join(' ') : 'None';
             const topRole = member.roles.highest ? member.roles.highest.toString() : 'None';
 
-            // Check if user is boosting the server
             const boostingSince = member.premiumSince 
                 ? `<t:${Math.floor(member.premiumSince.getTime() / 1000)}:R>` 
                 : 'No';
 
-            // Setup the info embed card matching Wizz theme
+            // Clean, ultra-fast Wizz Air embed layout
             const infoEmbed = new EmbedBuilder()
                 .setColor('#d3007f')
                 .setAuthor({ 
@@ -70,7 +58,7 @@ module.exports = {
                     },
                     {
                         name: 'Account Dates',
-                        value: `• **Created:** <t:${createdTimestamp}:D> (<t:${createdTimestamp}:R>)\n• **Joined:** <t:${joinedTimestamp}:D> (<t:${joinedTimestamp}:R>)\n• **Join Position:** **#${joinPosition}** / ${interaction.guild.memberCount}`,
+                        value: `• **Created:** <t:${createdTimestamp}:D> (<t:${createdTimestamp}:R>)\n• **Joined:** <t:${joinedTimestamp}:D> (<t:${joinedTimestamp}:R>)`,
                         inline: false
                     },
                     {
@@ -93,8 +81,8 @@ module.exports = {
             await interaction.editReply({ embeds: [infoEmbed] });
 
         } catch (error) {
-            console.error('❌ Crash detected inside /userinfo execution block:', error);
-            await interaction.editReply(`❌ An internal error occurred while generating the report: \`${error.message}\``).catch(() => {});
+            console.error('❌ Internal error in /userinfo:', error);
+            await interaction.editReply(`❌ Failed to retrieve user intelligence report: \`${error.message}\``).catch(() => {});
         }
     },
 };
