@@ -31,12 +31,17 @@ module.exports = {
         let successCount = 0;
         let failedUsers = [];
 
-        // 3. Define the plain text message content
+        // 3. Define the new Wizz Air formatted message content
         const inviteMessage = 
-            `✈️ **Air Dolomiti — Academy Invitation**\n\n` +
-            `Hello!\n\n` +
-            `You have been officially invited to join the **Air Dolomiti Academy**.\n` +
-            `Please follow the instructions provided by the staff or coordinate directly with them to proceed with your training.`;
+            `### <:care:1414277804555632801> **Application Status**\n` +
+            `<:blank:1296498991114227763> \`\`Fly Greenest\`\` <:flygreen:1272674839441965056>\n\n` +
+            `> Congratulations, on behalf of the **Wizz Recruitment Department**, we are pleased to announce that you have passed our direct entry opportunity and you're officially cleared to start building your career with us here at Wizz.\n\n` +
+            `<:arrow:1414277373909794937> To begin your career, we have an extensive two weeks prepared ahead for you whilst presenting one of the most challenging yet realistic training programs, designed individually depending on each department and different strengths. Once again, **congratulations**!\n\n` +
+            `> <:click:1414277937187782818> **[Academy Invitation](https://discord.gg/GZPhEGTBEA)**\n` +
+            `> -# This link is strictly protected under our internal regulations, and leaking to third-parties will result in a **blacklist** from our organisation. Ensure that you follow the instructions provided to verify and continue your journey within the academy.\n\n` +
+            `<:heart:1414277635126591579> **Viszlát**\n` +
+            `> -# **Onboarding Office**, Recruitment Department <:group:1414277778794221649> \n` +
+            `> -# Wizz Air, **Fly Greenest** <:flygreen:1272674839441965056>`;
 
         // 4. Loop through each user ID and attempt to DM them the text
         for (const id of userIds) {
