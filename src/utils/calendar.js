@@ -23,6 +23,8 @@ async function initializeAnnouncedCache(channel) {
     isCacheInitialized = true;
     console.log(`✅ Cache initialized. Ignored ${announcedFlightIds.size} previously sent flight alerts.`);
   } catch (err) {
+    // If we can't scan this channel due to access rules, check the error code
+    if (err.code === 50001 || err.code === 10003) return;
     console.error("⚠️ Failed to scan channel history cache:", err.message);
   }
 }
@@ -94,7 +96,6 @@ async function updateCalendar(client) {
       descriptionText += 'No upcoming flights scheduled.';
     }
 
-    // FIXED: Removed .setTimestamp() so it doesn't change the bottom edit time credit context every 5 minutes
     const embed = new EmbedBuilder()
       .setColor(0xC6007E)
       .setAuthor({ 
@@ -136,6 +137,8 @@ async function updateCalendar(client) {
     console.log(`📅 New Calendar posted! Update your environment variables with: CALENDAR_MESSAGE_ID=${newMsg.id}`);
 
   } catch (err) {
+    // Prevent console spam if calendar channel is missing access overrides
+    if (err.code === 50001 || err.code === 10003) return;
     console.error('Calendar update error:', err);
   }
 }
@@ -207,6 +210,10 @@ async function checkUpcomingDepartures(client) {
     }
 
   } catch (err) {
+    // FIX COMPLETED: Bypass log spam entirely if it hits Missing Access (50001) or Unknown Channel (10003)
+    if (err.code === 50001 || err.code === 10003) {
+      return; 
+    }
     console.error('Error running departures alert engine:', err.message);
   }
 }
@@ -222,6 +229,7 @@ function startCalendarLoop(client) {
       await updateCalendar(client);
       await checkUpcomingDepartures(client);
     } catch (err) {
+      if (err.code === 50001 || err.code === 10003) return;
       console.error('Error in calendar interval loop:', err);
     } finally {
       isUpdating = false;
@@ -229,4 +237,4 @@ function startCalendarLoop(client) {
   }, 300000);
 }
 
-module.exports = { startCalendarLoop, updateCalendar, checkUpcomingDepartures };  
+module.exports = { startCalendarLoop, updateCalendar, checkUpcomingDepartures };
