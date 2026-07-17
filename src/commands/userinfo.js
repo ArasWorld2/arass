@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -11,13 +11,13 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        // 1. Instantly respond to Discord to let it know we are working on it
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        // CHANGED: Removed MessageFlags.Ephemeral so the message is public to everyone!
+        await interaction.deferReply();
 
         try {
             const user = interaction.options.getUser('target') || interaction.user;
             
-            // Fetch member data locally without requesting the entire server database
+            // Fetch member data locally
             const member = await interaction.guild.members.fetch(user.id).catch(() => null);
             
             if (!member) {
