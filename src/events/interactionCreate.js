@@ -11,25 +11,40 @@ module.exports = {
         // ==========================================
         if (interaction.isStringSelectMenu()) {
             try {
-                // Instantly defer to prevent "interaction failed"
-                await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
-
-                const rawValue = interaction.values[0]; // e.g., 'join_firstOfficer'
                 const userId = interaction.user.id;
                 const messageId = interaction.message.id;
-                
-                // Strip prefix if present
+                const rawValue = interaction.values[0]; // e.g., 'join_firstOfficer'
                 const roleKey = rawValue.replace('join_', ''); 
 
                 // Find the sheet in MongoDB
                 const allocation = await Allocation.findOne({ messageId });
                 if (!allocation) {
-                    return await interaction.editReply('❌ Flight allocation data not found in the database. Ensure this sheet is active.');
+                    return await interaction.reply({
+                        content: '❌ Flight allocation data not found in the database. Ensure this sheet is active.',
+                        flags: [MessageFlags.Ephemeral]
+                    });
                 }
 
+                // Initialize empty properties safely if they don't exist
                 if (!allocation[roleKey]) allocation[roleKey] = [];
                 if (!allocation.queues) allocation.queues = {};
                 if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
+
+                const isAllocated = allocation[roleKey].includes(userId);
+                const isInQueue = allocation.queues[roleKey].includes(userId);
+                const flightNum = allocation.flight?.number || 'Unknown';
+
+                // 🔒 HARD UNALLOCATION LOCK CHECK
+                // If they are already in the slot or queue, interacting means they are trying to UNALLOCATE/LEAVE.
+                if (allocation.isLocked && (isAllocated || isInQueue)) {
+                    return await interaction.reply({
+                        content: '🔒 **Allocation Locked:** This flight sheet has been locked by administration. You are welcome to sign up for roles, but you cannot leave or unallocate yourself at this time.',
+                        flags: [MessageFlags.Ephemeral]
+                    });
+                }
+
+                // Instantly defer now that lock verification passed
+                await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
                 let roleLabel = roleKey;
                 let maxSlots = 1;
@@ -49,21 +64,10 @@ module.exports = {
                     }
                 }
 
-                const isAllocated = allocation[roleKey].includes(userId);
-                const isInQueue = allocation.queues[roleKey].includes(userId);
-                const flightNum = allocation.flight?.number || 'Unknown';
-
                 // ==========================================
-                // LEAVING: If they are allocated OR in queue
+                // LEAVING PROCESS
                 // ==========================================
                 if (isAllocated || isInQueue) {
-                    
-                    // 🔒 LOCK INTERCEPT ENGINE
-                    // If the administrator has locked this specific sheet, block unallocations
-                    if (allocation.isLocked) {
-                        return await interaction.editReply('🔒 **Allocation Locked:** This flight sheet has been locked by administration. You are welcome to sign up for roles, but you cannot leave or unallocate yourself at this time.');
-                    }
-                    
                     if (isAllocated) {
                         // 1. Remove from active slot
                         allocation[roleKey] = allocation[roleKey].filter(id => id !== userId);
@@ -74,7 +78,6 @@ module.exports = {
                             const nextUserId = allocation.queues[roleKey].shift();
                             allocation[roleKey].push(nextUserId);
                             
-                            // Fetch user object to send them a DM about being promoted
                             try {
                                 promotedUser = await interaction.client.users.fetch(nextUserId);
                             } catch {}
@@ -83,15 +86,12 @@ module.exports = {
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
 
-                        // DM: User who unallocated
                         await sendDM(interaction.user, `<:WP_x:1513933010267799716> You have unallocated from **${roleLabel}** for **${flightNum}**.`);
 
-                        // DM: The user promoted from the queue (if any)
                         if (promotedUser) {
                             await sendDM(promotedUser, `<:WP_thumbsup:1513933060452651120> You have been allocated as **${roleLabel}** for **${flightNum}**.`);
                         }
 
-                        // Log active removal
                         await sendLog(interaction, {
                             action: '🔴 De-allocated',
                             user: interaction.user,
@@ -101,16 +101,13 @@ module.exports = {
                         });
 
                     } else if (isInQueue) {
-                        // 1. Simply remove them from the queue list
                         allocation.queues[roleKey] = allocation.queues[roleKey].filter(id => id !== userId);
                         
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from the queue for **${roleLabel}**.`);
 
-                        // DM: Left queue
                         await sendDM(interaction.user, `<:WP_x:1513933010267799716> You have left the queue for **${roleLabel}** on **${flightNum}**.`);
 
-                        // Log queue removal
                         await sendLog(interaction, {
                             action: '🔴 Left Queue',
                             user: interaction.user,
@@ -122,18 +119,15 @@ module.exports = {
 
                 } else {
                     // ==========================================
-                    // JOINING: If they are not in either list
+                    // JOINING PROCESS
                     // ==========================================
-
                     if (allocation[roleKey].length < maxSlots) {
                         allocation[roleKey].push(userId);
                         await allocation.save();
                         await interaction.editReply(`✅ Allocated as **${roleLabel}**!`);
 
-                        // DM: Allocated successfully
                         await sendDM(interaction.user, `<:WP_check:1513934023251198087> You have been allocated as **${roleLabel}** for **${flightNum}**.`);
 
-                        // Send Log: Allocated
                         await sendLog(interaction, {
                             action: '🟢 Allocated',
                             user: interaction.user,
@@ -143,16 +137,13 @@ module.exports = {
                         });
 
                     } else {
-                        // Try adding to queue if they aren't already there
                         if (!allocation.queues[roleKey].includes(userId)) {
                             allocation.queues[roleKey].push(userId);
                             await allocation.save();
                             await interaction.editReply(`⏳ Slot full! Added to the queue for **${roleLabel}**.`);
 
-                            // DM: Added to Queue
                             await sendDM(interaction.user, `<:WP_telephone:1513933092811964557> The role **${roleLabel}** is full. You have been added to the queue.`);
 
-                            // Send Log: Added to Queue
                             await sendLog(interaction, {
                                 action: '⏳ Queue Joined',
                                 user: interaction.user,
@@ -167,7 +158,6 @@ module.exports = {
                     }
                 }
 
-                // Instantly re-render the embed layout
                 if (embeds && typeof embeds.buildMainEmbed === 'function' && typeof embeds.buildButtons === 'function') {
                     await interaction.message.edit({
                         embeds: [embeds.buildMainEmbed(allocation.flight, allocation)],
@@ -216,7 +206,6 @@ module.exports = {
     },
 };
 
-// Helper function to send direct messages safely
 async function sendDM(user, messageText) {
     try {
         await user.send(messageText);
@@ -225,7 +214,6 @@ async function sendDM(user, messageText) {
     }
 }
 
-// Helper function to process logs exactly like unallocate.js
 async function sendLog(interaction, { action, user, role, flightNumber, messageId }) {
     const logChannelId = process.env.LOG_CHANNEL_ID;
     if (!logChannelId) return;
