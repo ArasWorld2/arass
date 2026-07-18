@@ -16,6 +16,10 @@ const allocationSchema = new mongoose.Schema({
     boardingTime: String,
     operationsClosure: String,
   },
+  
+  // 🔒 This line preserves the lock state toggled by /allocation-lock
+  isLocked: { type: Boolean, default: false },
+
   dispatchSupervisor:  { type: [String], default: [] },
   flightSupervisor:    { type: [String], default: [] },
   captain:             { type: [String], default: [] },
