@@ -28,6 +28,11 @@ module.exports = {
     const allocation = await Allocation.findOne({ messageId });
     if (!allocation) return interaction.editReply('❌ Allocation not found.');
 
+    // 🔒 LOCK INTERCEPT ENGINE OVERRIDE
+    if (allocation.isLocked) {
+      return interaction.editReply('🔒 **Allocation Error:** This timetable schedule is currently locked. No modifications or unallocations are permitted.');
+    }
+
     const filled = allocation[roleKey] || [];
     const queue  = allocation.queues?.[roleKey] || [];
 

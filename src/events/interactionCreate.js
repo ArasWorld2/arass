@@ -58,6 +58,12 @@ module.exports = {
                 // ==========================================
                 if (isAllocated || isInQueue) {
                     
+                    // 🔒 LOCK INTERCEPT ENGINE
+                    // If the administrator has locked this specific sheet, block unallocations
+                    if (allocation.isLocked) {
+                        return await interaction.editReply('🔒 **Allocation Locked:** This flight sheet has been locked by administration. You are welcome to sign up for roles, but you cannot leave or unallocate yourself at this time.');
+                    }
+                    
                     if (isAllocated) {
                         // 1. Remove from active slot
                         allocation[roleKey] = allocation[roleKey].filter(id => id !== userId);

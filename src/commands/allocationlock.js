@@ -1,14 +1,14 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
-const Allocation = require('../models/Allocation'); // Adjust path to your allocation model if needed
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const Allocation = require('../models/Allocation');
 const { checkRole } = require('../utils/checkRole');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('allocation-lock')
-        .setDescription('Admin: Lock or unlock allocation changes for a timetable channel')
-        .addChannelOption(option => 
-            option.setName('channel')
-                .setDescription('The timetable channel to lock/unlock')
+        .setDescription('Admin: Lock or unlock allocation changes for a specific flight sheet')
+        .addStringOption(option => 
+            option.setName('message_id')
+                .setDescription('The Message ID of the flight sheet embed to lock/unlock')
                 .setRequired(true)
         )
         .addBooleanOption(option =>
@@ -21,34 +21,40 @@ module.exports = {
     async execute(interaction) {
         if (!await checkRole(interaction)) return;
         
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
-            const targetChannel = interaction.options.getChannel('channel');
+            const messageId = interaction.options.getString('message_id');
             const isLocked = interaction.options.getBoolean('locked');
 
-            // Update all active allocations matching this channel ID in MongoDB
-            const result = await Allocation.updateMany(
-                { channelId: targetChannel.id },
-                { $set: { isLocked: isLocked } }
-            );
+            // Find the specific flight document in MongoDB using its message ID
+            const allocation = await Allocation.findOne({ messageId });
+
+            if (!allocation) {
+                return await interaction.editReply('❌ No flight allocation found matching that Message ID.');
+            }
+
+            // Set the lock status flag
+            allocation.isLocked = isLocked;
+            await allocation.save();
 
             const statusEmbed = new EmbedBuilder()
                 .setColor('#d3007f')
-                .setTitle(isLocked ? '🔒 Timetable Allocation Locked' : '🔓 Timetable Allocation Unlocked')
-                .setDescription(`All flight allocations inside ${targetChannel} have been successfully ${isLocked ? '**locked**' : '**unlocked**'}.`)
+                .setTitle(isLocked ? '🔒 Flight Sheet Locked' : '🔓 Flight Sheet Unlocked')
+                .setDescription(`The flight sheet for **Flight ${allocation.flight?.number || 'Unknown'}** has been successfully ${isLocked ? '**locked**' : '**unlocked**'}.`)
                 .addFields(
-                    { name: 'Target Channel', value: `${targetChannel.name} (\`${targetChannel.id}\`)`, inline: true },
-                    { name: 'Impacted Records', value: `\`${result.modifiedCount}\` flight(s)`, inline: true }
+                    { name: 'Flight Number', value: `\`${allocation.flight?.number || 'N/A'}\``, inline: true },
+                    { name: 'Message ID', value: `\`${messageId}\``, inline: true },
+                    { name: 'Status', value: isLocked ? '🚫 Allocations Closed' : '✅ Allocations Open', inline: true }
                 )
                 .setTimestamp()
-                .setFooter({ text: 'Wizz Air Operations • Security Override' });
+                .setFooter({ text: 'Wizz Air Operations • Timetable Security' });
 
             await interaction.editReply({ embeds: [statusEmbed] });
 
         } catch (error) {
             console.error('❌ Error executing /allocation-lock:', error);
-            await interaction.editReply(`❌ Failed to alter allocation lock states: \`${error.message}\``);
+            await interaction.editReply(`❌ Failed to update flight lock state: \`${error.message}\``);
         }
     },
 };
