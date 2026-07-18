@@ -52,9 +52,29 @@ module.exports = {
 
             await interaction.editReply({ embeds: [statusEmbed] });
 
+            // 🌟 Send log to staff log channel
+            await sendLog(interaction, {
+                action: isLocked ? '🔒 Timetable Locked' : '🔓 Timetable Unlocked',
+                admin: interaction.user,
+                flightNumber: allocation.flight?.number || 'Unknown',
+                messageId
+            });
+
         } catch (error) {
             console.error('❌ Error executing /allocation-lock:', error);
             await interaction.editReply(`❌ Failed to update flight lock state: \`${error.message}\``);
         }
     },
 };
+
+// Helper function to process logs consistently across operations commands
+async function sendLog(interaction, { action, admin, flightNumber, messageId }) {
+    const logChannelId = process.env.LOG_CHANNEL_ID;
+    if (!logChannelId) return;
+    try {
+        const channel = await interaction.client.channels.fetch(logChannelId);
+        await channel.send(`${action} | **Flight ${flightNumber}** | By: <@${admin.id}> | [Jump](https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${messageId})`);
+    } catch (err) {
+        console.warn('Could not send allocation-lock command log:', err.message);
+    }
+}
