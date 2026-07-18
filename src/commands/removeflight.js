@@ -19,6 +19,11 @@ module.exports = {
       return interaction.editReply('❌ No allocation found with that message ID.');
     }
 
+    // 🔒 LOCK INTERCEPT ENGINE OVERRIDE
+    if (allocation.isLocked) {
+      return interaction.editReply('🔒 **Allocation Error:** This timetable schedule is currently locked. This flight cannot be removed.');
+    }
+
     try {
       const channel = await interaction.client.channels.fetch(allocation.channelId);
       const message = await channel.messages.fetch(messageId);
