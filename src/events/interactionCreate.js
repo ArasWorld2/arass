@@ -336,10 +336,15 @@ module.exports = {
                 const loaRoleId = process.env.LOA_ROLE_ID;
                 const guild = await interaction.client.guilds.fetch(guildId).catch(() => null);
                 
+                // 🔒 TIMEZONE DEFIANT INJECTION WINDOW
                 const now = new Date();
+                const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const startMidnight = new Date(loaRecord.startDate.getFullYear(), loaRecord.startDate.getMonth(), loaRecord.startDate.getDate());
+                
                 let appliedInstantly = false;
 
-                if (guild && loaRecord.startDate <= now) {
+                // Calendar check (Strict calendar day threshold)
+                if (guild && startMidnight <= todayMidnight) {
                     const member = await guild.members.fetch(loaRecord.userId).catch(() => null);
                     if (member && loaRoleId) {
                         await member.roles.add(loaRoleId).catch(err => console.error(`Failed to assign instant LOA role: ${err.message}`));
@@ -372,7 +377,7 @@ module.exports = {
                 }
 
                 return await interaction.reply({ 
-                    content: appliedInstantly ? 'LOA approved and role added instantly.' : 'LOA approved. Role will apply automatically on the start date.', 
+                    content: appliedInstantly ? '✅ LOA approved and role added instantly.' : '✅ LOA approved. Role will apply automatically on the start date.', 
                     flags: [MessageFlags.Ephemeral] 
                 });
             }
