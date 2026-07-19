@@ -223,10 +223,12 @@ module.exports = {
                     reason
                 });
 
+                // 🎨 Changed review embed color from Yellow to Wizz Magenta (#d3007f)
                 const reviewEmbed = new EmbedBuilder()
-                    .setColor('#f1c40f')
+                    .setColor('#d3007f')
                     .setTitle('New Leave of Absence Request')
                     .setDescription(`┃ User: <@${interaction.user.id}>\n┃ From: ${startStr}\n┃ To: ${endStr}\n\nReason Given\n┃ \`${reason}\``)
+                    .setFooter({ text: '© Wizz Air' })
                     .setTimestamp();
 
                 const row = new ActionRowBuilder().addComponents(
@@ -318,7 +320,6 @@ module.exports = {
             if (action === 'approve') {
                 loaRecord.status = 'APPROVED';
                 
-                // 🔗 Now explicitly pulling PERSONNEL_GUILD_ID per your request
                 const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
                 const loaRoleId = process.env.LOA_ROLE_ID;
                 
@@ -363,11 +364,12 @@ module.exports = {
 
                 await loaRecord.save();
 
+                // 📝 Cleaned footer text
                 const updatedEmbed = new EmbedBuilder()
                     .setColor('#d3007f') 
                     .setTitle('Leave Approved')
                     .setDescription(`┃ This leave request has been approved by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nApproved Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
-                    .setFooter({ text: "© Wizz Air - Let's WIZZ" })
+                    .setFooter({ text: '© Wizz Air' })
                     .setTimestamp();
 
                 const managementRow = new ActionRowBuilder().addComponents(
@@ -394,11 +396,12 @@ module.exports = {
                 loaRecord.status = 'DENIED';
                 await loaRecord.save();
 
+                // 📝 Cleaned footer text
                 const updatedEmbed = new EmbedBuilder()
                     .setColor('#e74c3c') 
                     .setTitle('Leave Denied')
                     .setDescription(`┃ This leave request has been denied by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nRequested Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
-                    .setFooter({ text: "© Wizz Air - Let's WIZZ" })
+                    .setFooter({ text: '© Wizz Air' })
                     .setTimestamp();
 
                 await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
