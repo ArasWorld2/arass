@@ -318,14 +318,14 @@ module.exports = {
             if (action === 'approve') {
                 loaRecord.status = 'APPROVED';
                 
-                const guildId = process.env.GUILD_ID;
+                // 🔗 Now explicitly pulling PERSONNEL_GUILD_ID per your request
+                const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
                 const loaRoleId = process.env.LOA_ROLE_ID;
                 
-                // 📢 LOUD DEBUG LOGS FOR RAILWAY CONSOLE
-                console.log(`[LOA Debug Run] Guild ID: ${guildId} | Role ID: ${loaRoleId} | Target User: ${loaRecord.userId}`);
+                console.log(`[LOA Personnel Target Check] Target Server ID: ${personnelGuildId} | Target Role ID: ${loaRoleId}`);
                 
-                const guild = await interaction.client.guilds.fetch(guildId).catch((err) => {
-                    console.error(`[LOA Error] Could not fetch Guild ID from Railway env: ${err.message}`);
+                const personnelGuild = await interaction.client.guilds.fetch(personnelGuildId).catch((err) => {
+                    console.error(`[LOA Critical Fetch Error] Could not find Personnel Server Guild profile on Discord: ${err.message}`);
                     return null;
                 });
                 
@@ -335,25 +335,29 @@ module.exports = {
                 
                 let appliedInstantly = false;
 
-                if (guild && startMidnight <= todayMidnight) {
-                    const member = await guild.members.fetch(loaRecord.userId).catch((err) => {
-                        console.error(`[LOA Error] Could not fetch Member profile: ${err.message}`);
+                if (personnelGuild && startMidnight <= todayMidnight) {
+                    const member = await personnelGuild.members.fetch(loaRecord.userId).catch((err) => {
+                        console.error(`[LOA Error] Member ${loaRecord.userId} is not physically in the Personnel Server (${personnelGuildId}): ${err.message}`);
                         return null;
                     });
                     
                     if (member && loaRoleId) {
-                        console.log(`[LOA Debug] Adding role ${loaRoleId} to user ${member.id}`);
-                        await member.roles.add(loaRoleId)
-                            .then(() => {
-                                loaRecord.roleApplied = true;
-                                appliedInstantly = true;
-                                console.log(`[LOA Debug] Success! Role has been applied to member.`);
-                            })
-                            .catch(err => {
-                                console.error(`[LOA CRITICAL ERROR] Discord API blocked role injection: ${err.message}`);
-                            });
-                    } else {
-                        console.warn(`[LOA Warning] Add failed: member profile or LOA_ROLE_ID string missing.`);
+                        const role = await personnelGuild.roles.fetch(loaRoleId).catch(() => null);
+                        
+                        if (!role) {
+                            console.error(`[LOA CRITICAL ERROR] Role ID ${loaRoleId} does not exist inside Personnel Server! Check Railway vars.`);
+                        } else {
+                            console.log(`[LOA Processing] Injecting verified role "${role.name}" into user account ${member.id}`);
+                            await member.roles.add(role)
+                                .then(() => {
+                                    loaRecord.roleApplied = true;
+                                    appliedInstantly = true;
+                                    console.log(`[LOA Success] Role applied directly to profile.`);
+                                })
+                                .catch(err => {
+                                    console.error(`[LOA CRITICAL ERROR] Discord API blocked role injection: ${err.message}`);
+                                });
+                        }
                     }
                 }
 
@@ -425,13 +429,13 @@ module.exports = {
                 loaRecord.roleRemoved = true;
                 await loaRecord.save();
 
-                const guildId = process.env.GUILD_ID;
+                const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
                 const loaRoleId = process.env.LOA_ROLE_ID;
-                const guild = await interaction.client.guilds.fetch(guildId).catch(() => null);
+                const personnelGuild = await interaction.client.guilds.fetch(personnelGuildId).catch(() => null);
                 
-                if (guild) {
-                    const member = await guild.members.fetch(loaRecord.userId).catch(() => null);
-                    if (member && member.roles.cache.has(loaRoleId)) {
+                if (personnelGuild) {
+                    const member = await personnelGuild.members.fetch(loaRecord.userId).catch(() => null);
+                    if (member && loaRoleId) {
                         await member.roles.remove(loaRoleId).catch(err => console.error(`Failed to remove LOA role early: ${err.message}`));
                     }
                 }
