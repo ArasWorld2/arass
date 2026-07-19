@@ -1,4 +1,4 @@
-const { Events, MessageFlags, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+const { Events, MessageFlags, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const Allocation = require('../models/Allocation');
 const Loa = require('../models/Loa');
 const embeds = require('../utils/embeds'); 
@@ -58,7 +58,6 @@ module.exports = {
                     let holdsAnyPosition = false;
                     const docData = allocation.toObject();
 
-                    // Scan all top-level array fields for the user's ID
                     for (const key in docData) {
                         if (Array.isArray(docData[key]) && docData[key].includes(userId)) {
                             holdsAnyPosition = true;
@@ -66,7 +65,6 @@ module.exports = {
                         }
                     }
 
-                    // Scan all nested queue maps/objects for the user's ID
                     if (!holdsAnyPosition && docData.queues) {
                         for (const queueKey in docData.queues) {
                             if (Array.isArray(docData.queues[queueKey]) && docData.queues[queueKey].includes(userId)) {
@@ -76,7 +74,6 @@ module.exports = {
                         }
                     }
 
-                    // Block them instantly if they already have a presence on this sheet
                     if (holdsAnyPosition) {
                         await sendLog(interaction, {
                             action: '🔒 Allocation Blocked (Locked Sheet)',
@@ -93,7 +90,6 @@ module.exports = {
                     }
                 }
 
-                // Defer the reply now that the safety lock verification passed
                 await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
                 // ==========================================
@@ -116,10 +112,10 @@ module.exports = {
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
 
-                        await sendDM(interaction.user, `<:WP_x:1513933010267799716> You have unallocated from **${roleLabel}** for **${flightNum}**.`);
+                        await sendDM(interaction.user, `You have unallocated from **${roleLabel}** for **${flightNum}**.`);
 
                         if (promotedUser) {
-                            await sendDM(promotedUser, `<:WP_thumbsup:1513933060452651120> You have been allocated as **${roleLabel}** for **${flightNum}**.`);
+                            await sendDM(promotedUser, `You have been allocated as **${roleLabel}** for **${flightNum}**.`);
                         }
 
                         await sendLog(interaction, {
@@ -136,7 +132,7 @@ module.exports = {
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from the queue for **${roleLabel}**.`);
 
-                        await sendDM(interaction.user, `<:WP_x:1513933010267799716> You have left the queue for **${roleLabel}** on **${flightNum}**.`);
+                        await sendDM(interaction.user, `You have left the queue for **${roleLabel}** on **${flightNum}**.`);
 
                         await sendLog(interaction, {
                             action: '🔴 Left Queue',
@@ -156,7 +152,7 @@ module.exports = {
                         await allocation.save();
                         await interaction.editReply(`✅ Allocated as **${roleLabel}**!`);
 
-                        await sendDM(interaction.user, `<:WP_check:1513934023251198087> You have been allocated as **${roleLabel}** for **${flightNum}**.`);
+                        await sendDM(interaction.user, `You have been allocated as **${roleLabel}** for **${flightNum}**.`);
 
                         await sendLog(interaction, {
                             action: '🟢 Allocated',
@@ -172,7 +168,7 @@ module.exports = {
                             await allocation.save();
                             await interaction.editReply(`⏳ Slot full! Added to the queue for **${roleLabel}**.`);
 
-                            await sendDM(interaction.user, `<:WP_telephone:1513933092811964557> The role **${roleLabel}** is full. You have been added to the queue.`);
+                            await sendDM(interaction.user, `The role **${roleLabel}** is full. You have been added to the queue.`);
 
                             await sendLog(interaction, {
                                 action: '⏳ Queue Joined',
@@ -183,7 +179,7 @@ module.exports = {
                             });
 
                         } else {
-                            await interaction.editReply(`<:WP_x:1513933010267799716> You are already in the waiting queue.`);
+                            await interaction.editReply(`You are already in the waiting queue.`);
                         }
                     }
                 }
@@ -203,7 +199,7 @@ module.exports = {
         }
 
         // ==========================================
-        // 2. HANDLE LOA MODAL SUBMISSIONS
+        // 2. HANDLE LOA INITIAL MODAL SUBMISSIONS
         // ==========================================
         if (interaction.isModalSubmit() && interaction.customId === 'loa_modal') {
             try {
@@ -243,17 +239,13 @@ module.exports = {
 
                 const reviewEmbed = new EmbedBuilder()
                     .setColor('#f1c40f')
-                    .setTitle('📋 New Leave of Absence Request')
-                    .addFields(
-                        { name: 'User', value: `<@${interaction.user.id}> (\`${interaction.user.id}\`)`, inline: false },
-                        { name: 'Duration', value: `📆 **From:** ${startStr}\n📆 **To:** ${endStr}`, inline: true },
-                        { name: 'Reason', value: `\`\`\`${reason}\`\`\``, inline: false }
-                    )
+                    .setTitle('New Leave of Absence Request')
+                    .setDescription(`┃ User: <@${interaction.user.id}>\n┃ From: ${startStr}\n┃ To: ${endStr}\n\nReason Given\n┃ \`${reason}\``)
                     .setTimestamp();
 
                 const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`loa_approve_${loaRecord._id}`).setLabel('✅ Approve').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`loa_deny_${loaRecord._id}`).setLabel('❌ Deny').setStyle(ButtonStyle.Danger)
+                    new ButtonBuilder().setCustomId(`loa_approve_${loaRecord._id}`).setLabel('Approve').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId(`loa_deny_${loaRecord._id}`).setLabel('Deny').setStyle(ButtonStyle.Danger)
                 );
 
                 const reviewMessage = await reviewChannel.send({ embeds: [reviewEmbed], components: [row] });
@@ -270,7 +262,53 @@ module.exports = {
         }
 
         // ==========================================
-        // 3. HANDLE LOA APPROVAL/DENIAL BUTTONS
+        // 3. HANDLE LOA END DATE MODAL SUBMISSION
+        // ==========================================
+        if (interaction.isModalSubmit() && interaction.customId.startsWith('loa_editmodal_')) {
+            try {
+                const recordId = interaction.customId.split('_')[2];
+                const newEndStr = interaction.fields.getTextInputValue('loa_new_end');
+                
+                const parts = newEndStr.split('/');
+                const newEndDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]), 12, 0, 0);
+
+                if (isNaN(newEndDate.getTime())) {
+                    return await interaction.reply({ content: '❌ Invalid date layout. Please format strictly as DD/MM/YYYY.', flags: [MessageFlags.Ephemeral] });
+                }
+
+                const loaRecord = await Loa.findById(recordId);
+                if (!loaRecord) return await interaction.reply({ content: '❌ Record not found.', flags: [MessageFlags.Ephemeral] });
+
+                if (newEndDate <= loaRecord.startDate) {
+                    return await interaction.reply({ content: '❌ New end date must fall completely after the start date.', flags: [MessageFlags.Ephemeral] });
+                }
+
+                loaRecord.endDate = newEndDate;
+                if (loaRecord.status === 'EXPIRED') {
+                    loaRecord.status = 'APPROVED';
+                    loaRecord.roleRemoved = false;
+                }
+                await loaRecord.save();
+
+                const formatDateStr = (dateObj) => {
+                    const d = new Date(dateObj);
+                    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                };
+
+                const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                    .setDescription(`┃ This leave request has been approved.\n\nMember\n┃ <@${loaRecord.userId}>\n\nApproved Dates (Modified)\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``);
+
+                await interaction.message.edit({ embeds: [updatedEmbed] });
+                return await interaction.reply({ content: '✅ Leave of absence expiration window adjusted successfully.', flags: [MessageFlags.Ephemeral] });
+
+            } catch (err) {
+                console.error(err);
+                return await interaction.reply({ content: '❌ Error processing date shift.', flags: [MessageFlags.Ephemeral] });
+            }
+        }
+
+        // ==========================================
+        // 4. HANDLE LOA MANAGEMENT ACTION BUTTONS
         // ==========================================
         if (interaction.isButton() && interaction.customId.startsWith('loa_')) {
             if (!interaction.member.permissions.has('ManageMessages')) {
@@ -278,16 +316,18 @@ module.exports = {
             }
 
             const parts = interaction.customId.split('_');
-            const action = parts[1]; // approve or deny
+            const action = parts[1]; 
             const recordId = parts[2];
             
             const loaRecord = await Loa.findById(recordId);
-
-            if (!loaRecord || loaRecord.status !== 'PENDING') {
-                return await interaction.reply({ content: '❌ This LOA request has already been processed or does not exist.', flags: [MessageFlags.Ephemeral] });
-            }
+            if (!loaRecord) return await interaction.reply({ content: '❌ LOA record not found.', flags: [MessageFlags.Ephemeral] });
 
             const targetUser = await interaction.client.users.fetch(loaRecord.userId).catch(() => null);
+
+            const formatDateStr = (dateObj) => {
+                const d = new Date(dateObj);
+                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+            };
 
             if (action === 'approve') {
                 loaRecord.status = 'APPROVED';
@@ -299,7 +339,6 @@ module.exports = {
                 const now = new Date();
                 let appliedInstantly = false;
 
-                // 🌟 DUAL-ACTION LAYER: If the start date is today or has passed, give it instantly
                 if (guild && loaRecord.startDate <= now) {
                     const member = await guild.members.fetch(loaRecord.userId).catch(() => null);
                     if (member && loaRoleId) {
@@ -311,22 +350,29 @@ module.exports = {
 
                 await loaRecord.save();
 
-                const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-                    .setColor('#2ecc71')
-                    .setTitle('✅ LOA Approved')
-                    .setFooter({ text: `Approved by ${interaction.user.tag}` });
+                const updatedEmbed = new EmbedBuilder()
+                    .setColor('#d3007f') 
+                    .setTitle('Leave Approved')
+                    .setDescription(`┃ This leave request has been approved by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nApproved Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
+                    .setFooter({ text: "© Wizz Air - Let's WIZZ" })
+                    .setTimestamp();
 
-                await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
+                const managementRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`loa_editend_${loaRecord._id}`).setLabel('Edit End Date').setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId(`loa_endearly_${loaRecord._id}`).setLabel('End Early').setStyle(ButtonStyle.Danger)
+                );
+
+                await interaction.message.edit({ embeds: [updatedEmbed], components: [managementRow] });
                 
                 if (targetUser) {
                     const msg = appliedInstantly 
-                        ? `🟢 **Your Leave of Absence Request has been APPROVED.** Your status roles have been updated instantly.`
-                        : `🟢 **Your Leave of Absence Request has been APPROVED.** Your status role configuration will apply automatically on your scheduled start date.`;
+                        ? `Your Leave of Absence Request has been APPROVED. Your status roles have been updated instantly.`
+                        : `Your Leave of Absence Request has been APPROVED. Your status role configuration will apply automatically on your scheduled start date.`;
                     await targetUser.send(msg).catch(() => {});
                 }
 
                 return await interaction.reply({ 
-                    content: appliedInstantly ? '✅ LOA approved and role added instantly.' : '✅ LOA approved. Role will apply automatically on the start date.', 
+                    content: appliedInstantly ? 'LOA approved and role added instantly.' : 'LOA approved. Role will apply automatically on the start date.', 
                     flags: [MessageFlags.Ephemeral] 
                 });
             }
@@ -335,24 +381,70 @@ module.exports = {
                 loaRecord.status = 'DENIED';
                 await loaRecord.save();
 
-                const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-                    .setColor('#e74c3c')
-                    .setTitle('❌ LOA Denied')
-                    .setFooter({ text: `Denied by ${interaction.user.tag}` });
+                const updatedEmbed = new EmbedBuilder()
+                    .setColor('#e74c3c') 
+                    .setTitle('Leave Denied')
+                    .setDescription(`┃ This leave request has been denied by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nRequested Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
+                    .setFooter({ text: "© Wizz Air - Let's WIZZ" })
+                    .setTimestamp();
 
                 await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
-                if (targetUser) await targetUser.send(`🔴 **Your Leave of Absence Request has been DENIED.** Please check in with management for clarification.`).catch(() => {});
-                return await interaction.reply({ content: '❌ LOA set to denied status.', flags: [MessageFlags.Ephemeral] });
+                if (targetUser) await targetUser.send(`Your Leave of Absence Request has been DENIED. Please check in with management for clarification.`).catch(() => {});
+                return await interaction.reply({ content: 'LOA set to denied status.', flags: [MessageFlags.Ephemeral] });
+            }
+
+            if (action === 'editend') {
+                const modal = new ModalBuilder()
+                    .setCustomId(`loa_editmodal_${recordId}`)
+                    .setTitle('Modify Leave End Date');
+
+                const newEndDateInput = new TextInputBuilder()
+                    .setCustomId('loa_new_end')
+                    .setLabel('New End Date (DD/MM/YYYY)')
+                    .setPlaceholder('e.g. 05/08/2026')
+                    .setMinLength(10)
+                    .setMaxLength(10)
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                modal.addComponents(new ActionRowBuilder().addComponents(newEndDateInput));
+                return await interaction.showModal(modal);
+            }
+
+            if (action === 'endearly') {
+                loaRecord.status = 'EXPIRED';
+                loaRecord.roleRemoved = true;
+                await loaRecord.save();
+
+                const guildId = process.env.GUILD_ID;
+                const loaRoleId = process.env.LOA_ROLE_ID;
+                const guild = await interaction.client.guilds.fetch(guildId).catch(() => null);
+                
+                if (guild) {
+                    const member = await guild.members.fetch(loaRecord.userId).catch(() => null);
+                    if (member && member.roles.cache.has(loaRoleId)) {
+                        await member.roles.remove(loaRoleId).catch(err => console.error(`Failed to remove LOA role early: ${err.message}`));
+                    }
+                }
+
+                const finishedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                    .setColor('#e74c3c')
+                    .setTitle('Leave Ended Early')
+                    .setDescription(interaction.message.embeds[0].description + `\n\n🛑 **Status:** Terminated early by <@${interaction.user.id}>.`);
+
+                await interaction.message.edit({ embeds: [finishedEmbed], components: [] });
+                if (targetUser) await targetUser.send(`🛑 Your Leave of Absence has been terminated early by administration.`).catch(() => {});
+                
+                return await interaction.reply({ content: '✅ Leave of Absence successfully terminated early.', flags: [MessageFlags.Ephemeral] });
             }
         }
 
         // ==========================================
-        // 4. HANDLE SLASH COMMANDS
+        // 5. HANDLE SLASH COMMANDS
         // ==========================================
         if (!interaction.isChatInputCommand()) return;
 
         const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
-
         if (interaction.guildId !== personnelGuildId) {
             return await interaction.reply({
                 content: '⚠️ This command is restricted and cannot be used here.',

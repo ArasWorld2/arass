@@ -11,7 +11,6 @@ module.exports = {
     .addUserOption(o => o.setName('user').setDescription('User to allocate').setRequired(true))
     .addStringOption(o => {
       const opt = o.setName('role').setDescription('Role to assign them to').setRequired(true);
-      // Dynamically load your non-autofilled roles as choices
       ROLES.filter(r => !r.autoFilled).forEach(r => opt.addChoices({ name: r.label, value: r.key }));
       return opt;
     })
@@ -46,12 +45,10 @@ module.exports = {
 
     let joinedQueue = false;
 
-    // 🛑 SLOT VERIFICATION CHECK
+    // SLOT VERIFICATION CHECK
     if (allocation[roleKey].length < maxSlots) {
-      // Free slots exist -> Assign directly to the active array
       allocation[roleKey].push(user.id);
     } else {
-      // Slots full -> Append directly into the waiting queue array instead
       allocation.queues[roleKey].push(user.id);
       joinedQueue = true;
     }
