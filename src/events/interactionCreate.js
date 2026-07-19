@@ -246,7 +246,7 @@ module.exports = {
                     .setTitle('📋 New Leave of Absence Request')
                     .addFields(
                         { name: 'User', value: `<@${interaction.user.id}> (\`${interaction.user.id}\`)`, inline: false },
-                        { name: 'Duration', value: `DC **From:** ${startStr}\n📆 **To:** ${endStr}`, inline: true },
+                        { name: 'Duration', value: `📆 **From:** ${startStr}\n📆 **To:** ${endStr}`, inline: true },
                         { name: 'Reason', value: `\`\`\`${reason}\`\`\``, inline: false }
                     )
                     .setTimestamp();
@@ -291,6 +291,24 @@ module.exports = {
 
             if (action === 'approve') {
                 loaRecord.status = 'APPROVED';
+                
+                const guildId = process.env.GUILD_ID;
+                const loaRoleId = process.env.LOA_ROLE_ID;
+                const guild = await interaction.client.guilds.fetch(guildId).catch(() => null);
+                
+                const now = new Date();
+                let appliedInstantly = false;
+
+                // 🌟 DUAL-ACTION LAYER: If the start date is today or has passed, give it instantly
+                if (guild && loaRecord.startDate <= now) {
+                    const member = await guild.members.fetch(loaRecord.userId).catch(() => null);
+                    if (member && loaRoleId) {
+                        await member.roles.add(loaRoleId).catch(err => console.error(`Failed to assign instant LOA role: ${err.message}`));
+                        loaRecord.roleApplied = true;
+                        appliedInstantly = true;
+                    }
+                }
+
                 await loaRecord.save();
 
                 const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
@@ -299,8 +317,18 @@ module.exports = {
                     .setFooter({ text: `Approved by ${interaction.user.tag}` });
 
                 await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
-                if (targetUser) await targetUser.send(`🟢 **Your Leave of Absence Request has been APPROVED.** Your status role configuration will apply automatically on your scheduled start date.`).catch(() => {});
-                return await interaction.reply({ content: '✅ LOA set to approved status.', flags: [MessageFlags.Ephemeral] });
+                
+                if (targetUser) {
+                    const msg = appliedInstantly 
+                        ? `🟢 **Your Leave of Absence Request has been APPROVED.** Your status roles have been updated instantly.`
+                        : `🟢 **Your Leave of Absence Request has been APPROVED.** Your status role configuration will apply automatically on your scheduled start date.`;
+                    await targetUser.send(msg).catch(() => {});
+                }
+
+                return await interaction.reply({ 
+                    content: appliedInstantly ? '✅ LOA approved and role added instantly.' : '✅ LOA approved. Role will apply automatically on the start date.', 
+                    flags: [MessageFlags.Ephemeral] 
+                });
             }
 
             if (action === 'deny') {
