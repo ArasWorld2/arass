@@ -6,7 +6,7 @@ const { getRoleConfig, buildMainEmbed, buildButtons, ROLES } = require('../utils
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('forceallocate')
-    .setDescription('Admin: Forcefully allocate a user to a role on a flight')
+    .setDescription('Admin: Forcefully allocate a user to a role or queue on a flight')
     .addStringOption(o => o.setName('message_id').setDescription('Message ID of the flight allocation').setRequired(true))
     .addUserOption(o => o.setName('user').setDescription('User to allocate').setRequired(true))
     .addStringOption(o => {
@@ -25,23 +25,35 @@ module.exports = {
     const user      = interaction.options.getUser('user');
     const roleKey   = interaction.options.getString('role');
     const roleConfig = getRoleConfig(roleKey);
+    const maxSlots  = roleConfig?.max || 1;
 
     const allocation = await Allocation.findOne({ messageId });
     if (!allocation) return interaction.editReply('❌ Allocation sheet not found.');
 
     if (!allocation[roleKey]) allocation[roleKey] = [];
+    if (!allocation.queues) allocation.queues = {};
+    if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
 
-    // Check if they are already in this role
+    // Check if they are already in this role active slot
     if (allocation[roleKey].includes(user.id)) {
       return interaction.editReply(`⚠️ <@${user.id}> is already allocated to **${roleConfig.label}**.`);
     }
 
-    // Force add them to the role array (ignores maximum slot limits and double-booking checks)
-    allocation[roleKey].push(user.id);
+    // Check if they are already waiting inside the queue
+    if (allocation.queues[roleKey].includes(user.id)) {
+      return interaction.editReply(`⚠️ <@${user.id}> is already in the queue for **${roleConfig.label}**.`);
+    }
 
-    // If they were in the queue for this role, remove them from it
-    if (allocation.queues?.[roleKey]) {
-      allocation.queues[roleKey] = allocation.queues[roleKey].filter(id => id !== user.id);
+    let joinedQueue = false;
+
+    // 🛑 SLOT VERIFICATION CHECK
+    if (allocation[roleKey].length < maxSlots) {
+      // Free slots exist -> Assign directly to the active array
+      allocation[roleKey].push(user.id);
+    } else {
+      // Slots full -> Append directly into the waiting queue array instead
+      allocation.queues[roleKey].push(user.id);
+      joinedQueue = true;
     }
 
     await allocation.save();
@@ -60,7 +72,7 @@ module.exports = {
 
     // Send the log to your logging channel
     await sendLog(interaction, {
-      action: '🟢 Force Allocated',
+      action: joinedQueue ? '⏳ Force Queue Joined' : '🟢 Force Allocated',
       admin: interaction.user,
       target: user,
       role: roleConfig.label,
@@ -68,7 +80,11 @@ module.exports = {
       messageId,
     });
 
-    return interaction.editReply(`✅ Forcefully allocated <@${user.id}> as **${roleConfig.label}**!`);
+    if (joinedQueue) {
+      return interaction.editReply(`⏳ Slot full! Forcefully added <@${user.id}> to the queue for **${roleConfig.label}**.`);
+    } else {
+      return interaction.editReply(`✅ Forcefully allocated <@${user.id}> as **${roleConfig.label}**!`);
+    }
   },
 };
 
