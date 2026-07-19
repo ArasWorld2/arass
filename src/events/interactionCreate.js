@@ -17,7 +17,6 @@ module.exports = {
                 const rawValue = interaction.values[0]; 
                 const roleKey = rawValue.replace('join_', ''); 
 
-                // Find the sheet in MongoDB
                 const allocation = await Allocation.findOne({ messageId });
                 if (!allocation) {
                     return await interaction.reply({
@@ -26,12 +25,10 @@ module.exports = {
                     });
                 }
 
-                // Initialize empty properties safely if they don't exist
                 if (!allocation[roleKey]) allocation[roleKey] = [];
                 if (!allocation.queues) allocation.queues = {};
                 if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
 
-                // Safely load configs from embeds.js to get the pretty role name for logs
                 let roleLabel = roleKey;
                 let maxSlots = 1;
 
@@ -53,7 +50,6 @@ module.exports = {
                 const isInQueue = allocation.queues[roleKey].includes(userId);
                 const flightNum = allocation.flight?.number || 'Unknown';
 
-                // 🔒 EXPLICIT LOCK INTERCEPT ENGINE
                 if (allocation.isLocked === true) {
                     let holdsAnyPosition = false;
                     const docData = allocation.toObject();
@@ -92,9 +88,6 @@ module.exports = {
 
                 await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
-                // ==========================================
-                // LEAVING PROCESS
-                // ==========================================
                 if (isAllocated || isInQueue) {
                     if (isAllocated) {
                         allocation[roleKey] = allocation[roleKey].filter(id => id !== userId);
@@ -111,7 +104,6 @@ module.exports = {
                         
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
-
                         await sendDM(interaction.user, `You have unallocated from **${roleLabel}** for **${flightNum}**.`);
 
                         if (promotedUser) {
@@ -131,7 +123,6 @@ module.exports = {
                         
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from the queue for **${roleLabel}**.`);
-
                         await sendDM(interaction.user, `You have left the queue for **${roleLabel}** on **${flightNum}**.`);
 
                         await sendLog(interaction, {
@@ -144,14 +135,10 @@ module.exports = {
                     }
 
                 } else {
-                    // ==========================================
-                    // JOINING PROCESS
-                    // ==========================================
                     if (allocation[roleKey].length < maxSlots) {
                         allocation[roleKey].push(userId);
                         await allocation.save();
                         await interaction.editReply(`✅ Allocated as **${roleLabel}**!`);
-
                         await sendDM(interaction.user, `You have been allocated as **${roleLabel}** for **${flightNum}**.`);
 
                         await sendLog(interaction, {
@@ -167,7 +154,6 @@ module.exports = {
                             allocation.queues[roleKey].push(userId);
                             await allocation.save();
                             await interaction.editReply(`⏳ Slot full! Added to the queue for **${roleLabel}**.`);
-
                             await sendDM(interaction.user, `The role **${roleLabel}** is full. You have been added to the queue.`);
 
                             await sendLog(interaction, {
@@ -216,7 +202,7 @@ module.exports = {
                 const endDate = parseDate(endStr);
 
                 if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-                    return await interaction.reply({ content: '❌ Invalid date layout. Please make sure to format it strictly as **DD/MM/YYYY**.', flags: [MessageFlags.Ephemeral] });
+                    return await interaction.reply({ content: '❌ Invalid date layout. Please format strictly as **DD/MM/YYYY**.', flags: [MessageFlags.Ephemeral] });
                 }
 
                 if (endDate <= startDate) {
@@ -334,22 +320,40 @@ module.exports = {
                 
                 const guildId = process.env.GUILD_ID;
                 const loaRoleId = process.env.LOA_ROLE_ID;
-                const guild = await interaction.client.guilds.fetch(guildId).catch(() => null);
                 
-                // 🔒 TIMEZONE DEFIANT INJECTION WINDOW
+                // 📢 LOUD DEBUG LOGS FOR RAILWAY CONSOLE
+                console.log(`[LOA Debug Run] Guild ID: ${guildId} | Role ID: ${loaRoleId} | Target User: ${loaRecord.userId}`);
+                
+                const guild = await interaction.client.guilds.fetch(guildId).catch((err) => {
+                    console.error(`[LOA Error] Could not fetch Guild ID from Railway env: ${err.message}`);
+                    return null;
+                });
+                
                 const now = new Date();
                 const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const startMidnight = new Date(loaRecord.startDate.getFullYear(), loaRecord.startDate.getMonth(), loaRecord.startDate.getDate());
                 
                 let appliedInstantly = false;
 
-                // Calendar check (Strict calendar day threshold)
                 if (guild && startMidnight <= todayMidnight) {
-                    const member = await guild.members.fetch(loaRecord.userId).catch(() => null);
+                    const member = await guild.members.fetch(loaRecord.userId).catch((err) => {
+                        console.error(`[LOA Error] Could not fetch Member profile: ${err.message}`);
+                        return null;
+                    });
+                    
                     if (member && loaRoleId) {
-                        await member.roles.add(loaRoleId).catch(err => console.error(`Failed to assign instant LOA role: ${err.message}`));
-                        loaRecord.roleApplied = true;
-                        appliedInstantly = true;
+                        console.log(`[LOA Debug] Adding role ${loaRoleId} to user ${member.id}`);
+                        await member.roles.add(loaRoleId)
+                            .then(() => {
+                                loaRecord.roleApplied = true;
+                                appliedInstantly = true;
+                                console.log(`[LOA Debug] Success! Role has been applied to member.`);
+                            })
+                            .catch(err => {
+                                console.error(`[LOA CRITICAL ERROR] Discord API blocked role injection: ${err.message}`);
+                            });
+                    } else {
+                        console.warn(`[LOA Warning] Add failed: member profile or LOA_ROLE_ID string missing.`);
                     }
                 }
 
@@ -444,9 +448,6 @@ module.exports = {
             }
         }
 
-        // ==========================================
-        // 5. HANDLE SLASH COMMANDS
-        // ==========================================
         if (!interaction.isChatInputCommand()) return;
 
         const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
