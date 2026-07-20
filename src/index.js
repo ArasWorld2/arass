@@ -1,9 +1,10 @@
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
+const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-// 💡 Fixed import path (relative to src/)
+// Roblox Webhook Server
 const { startWebServer } = require('./web/server');
 
 // Initialize the Discord Client
@@ -55,17 +56,18 @@ if (fs.existsSync(eventsPath)) {
 // ==========================================
 // 3. READY EVENT & SERVER INITIALIZATION
 // ==========================================
-client.once('ready', () => {
+// FIX 1: Updated deprecated 'ready' to Events.ClientReady
+client.once(Events.ClientReady, () => {
     console.log(`--------------------------------------------------`);
     console.log(`🤖 Logged in as: ${client.user.tag}`);
     console.log(`⚡ Connected to Discord API`);
     
-    // Start Express web listener
+    // Start Express web listener for Roblox
     startWebServer(client);
     console.log(`--------------------------------------------------`);
 });
 
-// Global error handlers to keep container alive
+// Global error handlers to prevent container crashes
 process.on('unhandledRejection', error => {
     console.error('❌ Unhandled promise rejection:', error);
 });
@@ -74,5 +76,31 @@ process.on('uncaughtException', error => {
     console.error('❌ Uncaught exception:', error);
 });
 
-// Connect to Discord
-client.login(process.env.DISCORD_TOKEN);
+// ==========================================
+// 4. DATABASE CONNECTION & BOT STARTUP
+// ==========================================
+// FIX 2: Connect to Database BEFORE logging into Discord
+async function startBot() {
+    try {
+        const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+        if (!mongoUri) {
+            console.error('❌ MONGODB_URI environment variable is missing in Railway!');
+            return; // Stops the bot from booting if the DB isn't configured
+        }
+
+        console.log('🔄 Connecting to MongoDB...');
+        // Await the connection so LOA checks don't timeout
+        await mongoose.connect(mongoUri);
+        console.log('✅ Connected to MongoDB successfully.');
+
+        // Now that the DB is ready, safely log into Discord
+        console.log('🔄 Logging into Discord...');
+        await client.login(process.env.DISCORD_TOKEN);
+        
+    } catch (err) {
+        console.error('❌ Fatal Error during startup:', err);
+    }
+}
+
+// Boot the application
+startBot();
