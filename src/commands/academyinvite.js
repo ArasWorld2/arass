@@ -3,8 +3,8 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('disc
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('examresults')
-        .setDescription('DM examination results as an embed directly to a student using their Discord ID')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages) // Restrict to Staff/Admins
+        .setDescription('DM examination results as a true Discord embed')
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
         .addStringOption(option =>
             option.setName('studentid')
                 .setDescription('The Discord User ID of the candidate')
@@ -28,7 +28,7 @@ module.exports = {
         const outOf = interaction.options.getInteger('outof');
         const examType = interaction.options.getString('examtype') || 'Recruitment Assessment';
 
-        // Clean user ID input
+        // Clean raw ID
         const studentId = studentIdRaw.replace(/[^0-9]/g, '');
 
         if (!studentId) {
@@ -39,13 +39,12 @@ module.exports = {
             return interaction.reply({ content: '❌ The "outof" value must be greater than 0.', ephemeral: true });
         }
 
-        // Fetch User by ID
         let student;
         try {
             student = await interaction.client.users.fetch(studentId);
         } catch (fetchErr) {
             return interaction.reply({ 
-                content: `❌ Could not find any Discord user with the ID \`${studentId}\`. Please check the ID and try again!`, 
+                content: `❌ Could not find any Discord user with ID \`${studentId}\`.`, 
                 ephemeral: true 
             });
         }
@@ -54,7 +53,6 @@ module.exports = {
         const percentage = Math.round((score / outOf) * 100);
         const passed = percentage >= 80;
 
-        // Dynamic Text Paragraphs based on Pass/Fail
         let mainMessage = "";
         let finalMessage = "";
 
@@ -66,40 +64,41 @@ module.exports = {
             finalMessage = `Your examination result of **${percentage}%** is below the required **80%** pass mark. We encourage you to review the study materials and re-apply for your assessment in the future. We thank you for your time and effort throughout the assessment process!`;
         }
 
-        // Build Discord Embed with #D3007F color
-        const examEmbed = new EmbedBuilder()
+        // --- ACTUAL DISCORD EMBED OBJECT ---
+        const realEmbed = new EmbedBuilder()
             .setColor('#D3007F')
             .setTitle(`<:care:1414277804555632801> Examination Results (${examType})`)
-            .setDescription(`<:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>\n\n> ${mainMessage}`)
+            .setDescription(`<:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>\n\n${mainMessage}`)
             .addFields(
                 {
                     name: '<:arrow:1414277373909794937> Results',
-                    value: `> • **Score:** \`${score}/${outOf}\`\n> • **Points:** \`${score}\`\n> • **Percentage:** \`${percentage}%\``,
+                    value: `• **Score:** \`${score}/${outOf}\`\n• **Points:** \`${score}\`\n• **Percentage:** \`${percentage}%\``,
                     inline: false
                 },
                 {
                     name: '<:arrow:1414277373909794937> Status & Progression',
-                    value: `> ${finalMessage}`,
+                    value: `${finalMessage}`,
+                    inline: false
+                },
+                {
+                    name: '<:heart:1414277635126591579> Viszlát',
+                    value: `-# **Onboarding Office**, Recruitment Department <:group:1414277778794221649>\n-# Wizz Air, **Fly Greenest** <:flygreen:1272674839441965056>`,
                     inline: false
                 }
-            )
-            .setFooter({ 
-                text: 'Onboarding Office, Recruitment Department • Wizz Air, Fly Greenest'
-            })
-            .setTimestamp();
+            );
 
         try {
-            // Send Embed in Direct Message
-            await student.send({ embeds: [examEmbed] });
+            // Note: Sending specifically as embeds: [realEmbed]
+            await student.send({ embeds: [realEmbed] });
 
             return interaction.reply({ 
-                content: `✅ Successfully sent embedded examination results to **${student.tag}** (\`${student.id}\`)! (${percentage}% - ${passed ? 'PASSED' : 'FAILED'})`, 
+                content: `✅ Successfully sent true embedded results to **${student.tag}** (\`${student.id}\`)! (${percentage}% - ${passed ? 'PASSED' : 'FAILED'})`, 
                 ephemeral: true 
             });
         } catch (error) {
             console.error(`Failed to DM ${student.tag}:`, error);
             return interaction.reply({ 
-                content: `❌ Could not send DM to **${student.tag}** (\`${student.id}\`). They likely have DMs disabled!`, 
+                content: `❌ Could not send DM to **${student.tag}**. DMs might be disabled!`, 
                 ephemeral: true 
             });
         }
