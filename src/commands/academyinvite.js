@@ -2,7 +2,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('disc
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('examresults')
+        .setName('academyinvite')
         .setDescription('DM examination results as a true Discord embed')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
         .addStringOption(option =>
