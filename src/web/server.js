@@ -15,7 +15,7 @@ app.use(express.json());
 let activeFlightNumber = 'W61799';
 
 function startWebServer(client) {
-    const PORT = process.env.PORT || 3000;
+    const PORT = 3000;
     const SECRET_KEY = process.env.ROBLOX_SECRET_KEY || 'WizzAirSecretKey2026';
 
     // Health check endpoint
