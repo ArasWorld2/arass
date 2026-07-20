@@ -28,7 +28,7 @@ module.exports = {
         const outOf = interaction.options.getInteger('outof');
         const examType = interaction.options.getString('examtype') || 'Recruitment Assessment';
 
-        // Clean user ID input
+        // Clean user ID input (removes non-numeric characters)
         const studentId = studentIdRaw.replace(/[^0-9]/g, '');
 
         if (!studentId) {
@@ -64,7 +64,7 @@ module.exports = {
             statusMessage = `Your examination result of **${percentage}%** is below the required **80%** pass mark. We encourage you to review the study materials and re-apply for your assessment in the future. We thank you for your time and effort throughout the assessment process!`;
         }
 
-        // NATIVE DISCORD EMBED BUILDER
+        // NATIVE DISCORD EMBED
         const examEmbed = new EmbedBuilder()
             .setColor('#D3007F')
             .setTitle(`<:care:1414277804555632801> Examination Results (${examType})`)
@@ -87,11 +87,11 @@ module.exports = {
             .setTimestamp();
 
         try {
-            // Send embed payload explicitly
+            // Send embed payload ONLY
             await student.send({ embeds: [examEmbed] });
 
             return interaction.reply({ 
-                content: `✅ Sent embedded exam results to **${student.tag}** (\`${student.id}\`)! (${percentage}% - ${passed ? 'PASSED' : 'FAILED'})`, 
+                content: `✅ Sent embedded results to **${student.tag}** (\`${student.id}\`)! (${percentage}% - ${passed ? 'PASSED' : 'FAILED'})`, 
                 ephemeral: true 
             });
         } catch (error) {

@@ -223,7 +223,6 @@ module.exports = {
                     reason
                 });
 
-                // 🎨 Changed review embed color from Yellow to Wizz Magenta (#d3007f)
                 const reviewEmbed = new EmbedBuilder()
                     .setColor('#d3007f')
                     .setTitle('New Leave of Absence Request')
@@ -323,10 +322,8 @@ module.exports = {
                 const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
                 const loaRoleId = process.env.LOA_ROLE_ID;
                 
-                console.log(`[LOA Personnel Target Check] Target Server ID: ${personnelGuildId} | Target Role ID: ${loaRoleId}`);
-                
                 const personnelGuild = await interaction.client.guilds.fetch(personnelGuildId).catch((err) => {
-                    console.error(`[LOA Critical Fetch Error] Could not find Personnel Server Guild profile on Discord: ${err.message}`);
+                    console.error(`[LOA Critical Fetch Error] Could not find Personnel Server: ${err.message}`);
                     return null;
                 });
                 
@@ -337,34 +334,23 @@ module.exports = {
                 let appliedInstantly = false;
 
                 if (personnelGuild && startMidnight <= todayMidnight) {
-                    const member = await personnelGuild.members.fetch(loaRecord.userId).catch((err) => {
-                        console.error(`[LOA Error] Member ${loaRecord.userId} is not physically in the Personnel Server (${personnelGuildId}): ${err.message}`);
-                        return null;
-                    });
+                    const member = await personnelGuild.members.fetch(loaRecord.userId).catch(() => null);
                     
                     if (member && loaRoleId) {
                         const role = await personnelGuild.roles.fetch(loaRoleId).catch(() => null);
-                        
-                        if (!role) {
-                            console.error(`[LOA CRITICAL ERROR] Role ID ${loaRoleId} does not exist inside Personnel Server! Check Railway vars.`);
-                        } else {
-                            console.log(`[LOA Processing] Injecting verified role "${role.name}" into user account ${member.id}`);
+                        if (role) {
                             await member.roles.add(role)
                                 .then(() => {
                                     loaRecord.roleApplied = true;
                                     appliedInstantly = true;
-                                    console.log(`[LOA Success] Role applied directly to profile.`);
                                 })
-                                .catch(err => {
-                                    console.error(`[LOA CRITICAL ERROR] Discord API blocked role injection: ${err.message}`);
-                                });
+                                .catch(err => console.error(`[LOA Role Add Error]: ${err.message}`));
                         }
                     }
                 }
 
                 await loaRecord.save();
 
-                // 📝 Cleaned footer text
                 const updatedEmbed = new EmbedBuilder()
                     .setColor('#d3007f') 
                     .setTitle('Leave Approved')
@@ -396,7 +382,6 @@ module.exports = {
                 loaRecord.status = 'DENIED';
                 await loaRecord.save();
 
-                // 📝 Cleaned footer text
                 const updatedEmbed = new EmbedBuilder()
                     .setColor('#e74c3c') 
                     .setTitle('Leave Denied')
@@ -455,15 +440,10 @@ module.exports = {
             }
         }
 
+        // ==========================================
+        // 5. CHAT COMMAND DISPATCHER
+        // ==========================================
         if (!interaction.isChatInputCommand()) return;
-
-        const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
-        if (interaction.guildId !== personnelGuildId) {
-            return await interaction.reply({
-                content: '⚠️ This command is restricted and cannot be used here.',
-                flags: [MessageFlags.Ephemeral]
-            });
-        }
 
         const command = interaction.client.commands.get(interaction.commandName);
         if (!command) return;
@@ -471,7 +451,7 @@ module.exports = {
         try {
             await command.execute(interaction);
         } catch (error) {
-            console.error(`Error executing ${interaction.commandName}:`, error);
+            console.error(`Error executing /${interaction.commandName}:`, error);
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ content: 'There was an error while executing this command!', flags: [MessageFlags.Ephemeral] });
             } else {

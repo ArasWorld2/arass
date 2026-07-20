@@ -27,8 +27,6 @@ if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
-        
-        // Clear Node.js require cache so updated files load on restart
         delete require.cache[require.resolve(filePath)];
 
         const command = require(filePath);
@@ -42,7 +40,7 @@ if (fs.existsSync(commandsPath)) {
 }
 
 // ==========================================
-// 2. EVENT HANDLER & INTERACTION LISTENER
+// 2. EVENT HANDLER
 // ==========================================
 const eventsPath = path.join(__dirname, 'events');
 if (fs.existsSync(eventsPath)) {
@@ -57,28 +55,6 @@ if (fs.existsSync(eventsPath)) {
         }
     }
 }
-
-// Slash Command Execution Listener
-client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = client.commands.get(interaction.commandName);
-    if (!command) {
-        console.error(`No command matching /${interaction.commandName} was found.`);
-        return;
-    }
-
-    try {
-        await command.execute(interaction);
-    } catch (error) {
-        console.error(`Error executing /${interaction.commandName}:`, error);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
-        } else {
-            await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-        }
-    }
-});
 
 // ==========================================
 // 3. READY EVENT & SERVER INITIALIZATION
