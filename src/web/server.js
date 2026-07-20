@@ -14,8 +14,6 @@ app.use(express.json());
 let activeFlightNumber = 'W61799';
 
 function startWebServer(client) {
-    // Priority: process.env.PORT provided by Railway
-// Force port 8080 to align with Railway target port
     const PORT = 8080;
     const SECRET_KEY = process.env.ROBLOX_SECRET_KEY || 'WizzAirSecretKey2026';
 
@@ -86,15 +84,16 @@ function startWebServer(client) {
             }
 
             const flight = allocation?.flight || {};
-            const flightNumStr = flight.number || activeFlightNumber || 'W6 1799';
-            const departure = flight.departure || flight.from || 'Gdańsk Lech Wałęsa Airport';
-            const arrival = flight.arrival || flight.to || 'Tirana International Airport Nënë Tereza';
+            const flightNumStr = flight.number || activeFlightNumber || 'W61799';
+            const departure = flight.departure || flight.from || 'Gdansk';
+            const arrival = flight.arrival || flight.to || 'Tirana';
 
+            // Updated Format with Full Wnewtail Emoji Tag
             const announcementText = 
 `### <:suitcasewalk:1414277649395749046> Server Unlocked
--# :blank: \`Fly Greenest\` :flygreen:
+-# <:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>
 
-> The server has **been unlocked** for all passengers travelling on flight :Wnewtail: **${flightNumStr}** to **${arrival}** via **${departure}**. All passengers are now invited to join the flight server in preparation for departure.
+> The server has **been unlocked** for all passengers travelling on flight <:Wnewtail:1272656069910462464> **${flightNumStr}** to **${arrival}** via **${departure}**. All passengers are now invited to join the flight server in preparation for departure.
 <:arrow1:1414277637135925318> Please be advised that the server will remain open throughout the duration of the flight and passengers will be teleported directly onto the aircraft if they arrive too late. Should you require further information or support, please reach out to an on duty personnel.
 
 -# <:link:1414278009573347328> **[Join Now](https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport)**
