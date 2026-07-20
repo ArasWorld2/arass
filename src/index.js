@@ -27,9 +27,14 @@ if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
+        
+        // Clear Node.js require cache so updated files load on restart
+        delete require.cache[require.resolve(filePath)];
+
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
+            console.log(`[Command Loaded] /${command.data.name}`);
         } else {
             console.warn(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
         }
@@ -37,7 +42,7 @@ if (fs.existsSync(commandsPath)) {
 }
 
 // ==========================================
-// 2. EVENT HANDLER
+// 2. EVENT HANDLER & INTERACTION LISTENER
 // ==========================================
 const eventsPath = path.join(__dirname, 'events');
 if (fs.existsSync(eventsPath)) {
@@ -53,10 +58,31 @@ if (fs.existsSync(eventsPath)) {
     }
 }
 
+// Slash Command Execution Listener
+client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+
+    const command = client.commands.get(interaction.commandName);
+    if (!command) {
+        console.error(`No command matching /${interaction.commandName} was found.`);
+        return;
+    }
+
+    try {
+        await command.execute(interaction);
+    } catch (error) {
+        console.error(`Error executing /${interaction.commandName}:`, error);
+        if (interaction.replied || interaction.deferred) {
+            await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+        } else {
+            await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+        }
+    }
+});
+
 // ==========================================
 // 3. READY EVENT & SERVER INITIALIZATION
 // ==========================================
-// FIX 1: Updated deprecated 'ready' to Events.ClientReady
 client.once(Events.ClientReady, () => {
     console.log(`--------------------------------------------------`);
     console.log(`🤖 Logged in as: ${client.user.tag}`);
@@ -79,21 +105,18 @@ process.on('uncaughtException', error => {
 // ==========================================
 // 4. DATABASE CONNECTION & BOT STARTUP
 // ==========================================
-// FIX 2: Connect to Database BEFORE logging into Discord
 async function startBot() {
     try {
         const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
         if (!mongoUri) {
             console.error('❌ MONGODB_URI environment variable is missing in Railway!');
-            return; // Stops the bot from booting if the DB isn't configured
+            return;
         }
 
         console.log('🔄 Connecting to MongoDB...');
-        // Await the connection so LOA checks don't timeout
         await mongoose.connect(mongoUri);
         console.log('✅ Connected to MongoDB successfully.');
 
-        // Now that the DB is ready, safely log into Discord
         console.log('🔄 Logging into Discord...');
         await client.login(process.env.DISCORD_TOKEN);
         
