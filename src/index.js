@@ -1,76 +1,79 @@
-const { Client, GatewayIntentBits, Collection, REST, Routes } = require('discord.js');
-const fs = require('node:fs');
-const path = require('node:path');
-const mongoose = require('mongoose');
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
+// Import the Roblox Webhook Express Server
+const { startWebServer } = require('./src/web/server');
+
+// Initialize the Discord Client with required intents
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildPresences // 🌟 Added for presence, activity status, and badge scanning
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.MessageContent
     ]
 });
 
+// Setup Collection for Slash Commands
 client.commands = new Collection();
 
-// Load Commands
-const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-    if ('data' in command && 'execute' in command) {
-        client.commands.set(command.data.name, command);
+// ==========================================
+// 1. COMMAND HANDLER
+// ==========================================
+const commandsPath = path.join(__dirname, 'src', 'commands');
+if (fs.existsSync(commandsPath)) {
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    for (const file of commandFiles) {
+        const filePath = path.join(commandsPath, file);
+        const command = require(filePath);
+        if ('data' in command && 'execute' in command) {
+            client.commands.set(command.data.name, command);
+        } else {
+            console.warn(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+        }
     }
 }
 
-// Load Events
-const eventsPath = path.join(__dirname, 'events');
-const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
-
-for (const file of eventFiles) {
-    const filePath = path.join(eventsPath, file);
-    const event = require(filePath);
-    if (event.once) {
-        client.once(event.name, (...args) => event.execute(...args));
-    } else {
-        client.on(event.name, (...args) => event.execute(...args));
+// ==========================================
+// 2. EVENT HANDLER
+// ==========================================
+const eventsPath = path.join(__dirname, 'src', 'events');
+if (fs.existsSync(eventsPath)) {
+    const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+    for (const file of eventFiles) {
+        const filePath = path.join(eventsPath, file);
+        const event = require(filePath);
+        if (event.once) {
+            client.once(event.name, (...args) => event.execute(...args));
+        } else {
+            client.on(event.name, (...args) => event.execute(...args));
+        }
     }
 }
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
-    .then(() => console.log('Connected to MongoDB database.'))
-    .catch(err => console.error('MongoDB connection error:', err));
-
-// Unified Ready & Command Sync Event
-client.once('ready', async () => {
-    console.log(`🤖 Logged in as ${client.user.tag}!`);
-
-    try {
-        const token = process.env.DISCORD_TOKEN || process.env.TOKEN;
-        const rest = new REST().setToken(token);
-        const commandJsonList = client.commands.map(cmd => cmd.data.toJSON());
-        
-        console.log('🧹 Clearing old global command cache to fix duplicates...');
-        await rest.put(
-            Routes.applicationCommands(client.user.id),
-            { body: [] } // Wipes the global cache clean
-        );
-
-        console.log(`Pushing ${client.commands.size} slash commands directly to the server guild...`);
-        await rest.put(
-            Routes.applicationGuildCommands(client.user.id, process.env.PERSONNEL_GUILD_ID),
-            { body: commandJsonList },
-        );
-        
-        console.log('✅ Duplicates resolved! All application (/) commands successfully registered.');
-    } catch (error) {
-        console.error('❌ Automatic command registration failed:', error);
-    }
+// ==========================================
+// 3. CLIENT READY EVENT & WEB SERVER INITIALIZATION
+// ==========================================
+client.once('ready', () => {
+    console.log(`--------------------------------------------------`);
+    console.log(`🤖 Logged in as: ${client.user.tag}`);
+    console.log(`⚡ Connected to Discord API`);
+    
+    // Start the Express HTTP listener for Roblox :setflight and :so
+    startWebServer(client);
+    console.log(`--------------------------------------------------`);
 });
 
-client.login(process.env.DISCORD_TOKEN || process.env.TOKEN);
+// Global Unhandled Error Handling to prevent crashes
+process.on('unhandledRejection', error => {
+    console.error('❌ Unhandled promise rejection:', error);
+});
+
+process.on('uncaughtException', error => {
+    console.error('❌ Uncaught exception:', error);
+});
+
+// Log into Discord
+client.login(process.env.DISCORD_TOKEN);
