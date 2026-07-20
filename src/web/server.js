@@ -15,7 +15,8 @@ let activeFlightNumber = 'W61799';
 
 function startWebServer(client) {
     // Priority: process.env.PORT provided by Railway
-    const PORT = process.env.PORT || 8080;
+// Force port 8080 to align with Railway target port
+    const PORT = 8080;
     const SECRET_KEY = process.env.ROBLOX_SECRET_KEY || 'WizzAirSecretKey2026';
 
     // Health check
