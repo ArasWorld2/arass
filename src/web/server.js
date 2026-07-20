@@ -1,7 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
 
-// Relative path to Allocation model from src/web/
 let Allocation;
 try {
     Allocation = require('../models/Allocation');
@@ -15,18 +14,19 @@ app.use(express.json());
 let activeFlightNumber = 'W61799';
 
 function startWebServer(client) {
-    const PORT = 3000;
+    // Priority: process.env.PORT provided by Railway
+    const PORT = process.env.PORT || 8080;
     const SECRET_KEY = process.env.ROBLOX_SECRET_KEY || 'WizzAirSecretKey2026';
 
-    // Health check endpoint
+    // Health check
     app.get('/', (req, res) => {
         return res.status(200).send('OK - Roblox Webhook Server Online!');
     });
 
-    // 1. Endpoint: Updates active flight number (:setflight <number>)
+    // 1. SET FLIGHT
     app.post('/api/set-flight', (req, res) => {
         try {
-            const { secret, flightNumber } = req.body;
+            const { secret, flightNumber } = req.body || {};
             if (secret !== SECRET_KEY) {
                 return res.status(200).json({ success: false, error: 'Unauthorized secret key' });
             }
@@ -34,8 +34,9 @@ function startWebServer(client) {
                 return res.status(200).json({ success: false, error: 'Missing flight number parameter' });
             }
 
-            activeFlightNumber = flightNumber.trim().toUpperCase();
-            console.log(`[Roblox API] Active flight set to: ${activeFlightNumber}`);
+            activeFlightNumber = String(flightNumber).trim().toUpperCase();
+            console.log(`[Roblox API Success] Active flight updated to: ${activeFlightNumber}`);
+            
             return res.status(200).json({ success: true, activeFlightNumber });
         } catch (err) {
             console.error('[Roblox API /set-flight Error]', err);
@@ -43,31 +44,27 @@ function startWebServer(client) {
         }
     });
 
-    // 2. Endpoint: Sends dynamic Discord shoutout (:so)
+    // 2. SHOUTOUT
     app.post('/api/shoutout', async (req, res) => {
         try {
-            const { secret } = req.body;
+            const { secret } = req.body || {};
             if (secret !== SECRET_KEY) {
                 return res.status(200).json({ success: false, error: 'Unauthorized secret key' });
             }
 
             const targetChannelId = process.env.SO_CHANNEL_ID;
-
             if (!targetChannelId) {
-                console.error('[Roblox API Error] SO_CHANNEL_ID environment variable missing.');
                 return res.status(200).json({ success: false, error: 'SO_CHANNEL_ID is not configured on Railway.' });
             }
 
-            // Fetch Discord Channel safely
-            let channel = client.channels.cache.get(targetChannelId);
+            let channel = client.channels?.cache.get(targetChannelId);
             if (!channel) {
                 try {
                     channel = await client.channels.fetch(targetChannelId);
                 } catch (fetchErr) {
-                    console.error(`[Discord API Error] Could not fetch channel ID ${targetChannelId}:`, fetchErr.message);
                     return res.status(200).json({ 
                         success: false, 
-                        error: `Bot cannot access channel ${targetChannelId}. Check permissions or channel ID.` 
+                        error: `Bot cannot access channel ${targetChannelId}. Check permissions.` 
                     });
                 }
             }
@@ -77,26 +74,21 @@ function startWebServer(client) {
             }
 
             let allocation = null;
-
-            // Database Query with safety checks
             if (Allocation && mongoose.connection.readyState === 1) {
                 try {
                     allocation = await Allocation.findOne({ 
                         'flight.number': { $regex: new RegExp(`^${activeFlightNumber}$`, 'i') } 
-                    }).maxTimeMS(1500);
+                    }).maxTimeMS(1000).exec();
                 } catch (dbErr) {
                     console.warn('[MongoDB Warning] Query skipped:', dbErr.message);
                 }
             }
 
             const flight = allocation?.flight || {};
-
-            // Dynamic fields with fallbacks
             const flightNumStr = flight.number || activeFlightNumber || 'W6 1799';
             const departure = flight.departure || flight.from || 'Gdańsk Lech Wałęsa Airport';
             const arrival = flight.arrival || flight.to || 'Tirana International Airport Nënë Tereza';
 
-            // Announcement Template
             const announcementText = 
 `### <:suitcasewalk:1414277649395749046> Server Unlocked
 -# :blank: \`Fly Greenest\` :flygreen:
@@ -107,10 +99,9 @@ function startWebServer(client) {
 -# <:link:1414278009573347328> **[Join Now](https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport)**
 -# <:roblox:1414277676855857172> **[Roblox Group](<https://www.roblox.com/communities/16137621/w-zzair-rblx#!/about>)**`;
 
-            // Post message to Discord
             await channel.send({ content: announcementText });
-
-            console.log(`[Roblox API Success] Shoutout sent to #${channel.name} (${targetChannelId}) for flight ${flightNumStr}`);
+            console.log(`[Roblox API Success] Shoutout sent for flight ${flightNumStr}`);
+            
             return res.status(200).json({ success: true, message: 'Shoutout sent successfully!' });
 
         } catch (err) {
