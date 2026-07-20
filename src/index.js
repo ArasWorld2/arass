@@ -3,10 +3,10 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-// Import the Roblox Webhook Express Server
-const { startWebServer } = require('./src/web/server');
+// 💡 Fixed import path (relative to src/)
+const { startWebServer } = require('./web/server');
 
-// Initialize the Discord Client with required intents
+// Initialize the Discord Client
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -16,13 +16,12 @@ const client = new Client({
     ]
 });
 
-// Setup Collection for Slash Commands
 client.commands = new Collection();
 
 // ==========================================
 // 1. COMMAND HANDLER
 // ==========================================
-const commandsPath = path.join(__dirname, 'src', 'commands');
+const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
     for (const file of commandFiles) {
@@ -39,7 +38,7 @@ if (fs.existsSync(commandsPath)) {
 // ==========================================
 // 2. EVENT HANDLER
 // ==========================================
-const eventsPath = path.join(__dirname, 'src', 'events');
+const eventsPath = path.join(__dirname, 'events');
 if (fs.existsSync(eventsPath)) {
     const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
     for (const file of eventFiles) {
@@ -54,19 +53,19 @@ if (fs.existsSync(eventsPath)) {
 }
 
 // ==========================================
-// 3. CLIENT READY EVENT & WEB SERVER INITIALIZATION
+// 3. READY EVENT & SERVER INITIALIZATION
 // ==========================================
 client.once('ready', () => {
     console.log(`--------------------------------------------------`);
     console.log(`🤖 Logged in as: ${client.user.tag}`);
     console.log(`⚡ Connected to Discord API`);
     
-    // Start the Express HTTP listener for Roblox :setflight and :so
+    // Start Express web listener
     startWebServer(client);
     console.log(`--------------------------------------------------`);
 });
 
-// Global Unhandled Error Handling to prevent crashes
+// Global error handlers to keep container alive
 process.on('unhandledRejection', error => {
     console.error('❌ Unhandled promise rejection:', error);
 });
@@ -75,5 +74,5 @@ process.on('uncaughtException', error => {
     console.error('❌ Uncaught exception:', error);
 });
 
-// Log into Discord
+// Connect to Discord
 client.login(process.env.DISCORD_TOKEN);
