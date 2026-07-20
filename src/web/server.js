@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 
+// Relative path to Allocation model from src/web/
 let Allocation;
 try {
     Allocation = require('../models/Allocation');
@@ -11,18 +12,74 @@ try {
 const app = express();
 app.use(express.json());
 
+// Default active flight on boot
 let activeFlightNumber = 'W61799';
 
 function startWebServer(client) {
     const PORT = 8080;
     const SECRET_KEY = process.env.ROBLOX_SECRET_KEY || 'WizzAirSecretKey2026';
 
-    // Health check
+    // Health check endpoint
     app.get('/', (req, res) => {
         return res.status(200).send('OK - Roblox Webhook Server Online!');
     });
 
-    // 1. SET FLIGHT
+    // =========================================================================
+    // EASY DATABASE SEEDER: Visit https://YOUR-URL/api/seed in your browser!
+    // =========================================================================
+    app.get('/api/seed', async (req, res) => {
+        try {
+            if (!Allocation || mongoose.connection.readyState !== 1) {
+                return res.status(500).json({ success: false, error: 'MongoDB is not connected!' });
+            }
+
+            const sampleFlights = [
+                {
+                    flight: {
+                        number: "W61799",
+                        departure: "Gdansk",
+                        arrival: "Tirana",
+                        gameLink: "https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport"
+                    }
+                },
+                {
+                    flight: {
+                        number: "W62204",
+                        departure: "London Luton",
+                        arrival: "Budapest",
+                        gameLink: "https://www.roblox.com/games/121134102391740/London-Luton-Airport"
+                    }
+                },
+                {
+                    flight: {
+                        number: "W61301",
+                        departure: "Warsaw Chopin",
+                        arrival: "Rome Fiumicino",
+                        gameLink: "https://www.roblox.com/games/121134102391740/Warsaw-Chopin-Airport"
+                    }
+                }
+            ];
+
+            for (const item of sampleFlights) {
+                await Allocation.updateOne(
+                    { 'flight.number': item.flight.number },
+                    { $set: item },
+                    { upsert: true }
+                );
+            }
+
+            return res.status(200).json({ 
+                success: true, 
+                message: 'Successfully inserted/updated all 3 flights into MongoDB!' 
+            });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // =========================================================================
+    // 1. SET ACTIVE FLIGHT (:setflight <flightNumber>)
+    // =========================================================================
     app.post('/api/set-flight', (req, res) => {
         try {
             const { secret, flightNumber } = req.body || {};
@@ -43,7 +100,9 @@ function startWebServer(client) {
         }
     });
 
-    // 2. SHOUTOUT
+    // =========================================================================
+    // 2. DISCORD ANNOUNCEMENT SHOUTOUT (:so)
+    // =========================================================================
     app.post('/api/shoutout', async (req, res) => {
         try {
             const { secret } = req.body || {};
@@ -56,6 +115,7 @@ function startWebServer(client) {
                 return res.status(200).json({ success: false, error: 'SO_CHANNEL_ID is not configured on Railway.' });
             }
 
+            // Fetch Discord Channel safely
             let channel = client.channels?.cache.get(targetChannelId);
             if (!channel) {
                 try {
@@ -72,23 +132,26 @@ function startWebServer(client) {
                 return res.status(200).json({ success: false, error: `Channel ID ${targetChannelId} does not exist.` });
             }
 
+            // Query MongoDB for the current active flight
             let allocation = null;
             if (Allocation && mongoose.connection.readyState === 1) {
                 try {
                     allocation = await Allocation.findOne({ 
                         'flight.number': { $regex: new RegExp(`^${activeFlightNumber}$`, 'i') } 
-                    }).maxTimeMS(1000).exec();
+                    }).maxTimeMS(1500).exec();
                 } catch (dbErr) {
                     console.warn('[MongoDB Warning] Query skipped:', dbErr.message);
                 }
             }
 
+            // Dynamic fields with safe fallback defaults
             const flight = allocation?.flight || {};
             const flightNumStr = flight.number || activeFlightNumber || 'W61799';
             const departure = flight.departure || flight.from || 'Gdansk';
             const arrival = flight.arrival || flight.to || 'Tirana';
+            const joinLink = flight.gameLink || 'https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport';
 
-            // Updated Format with Full Wnewtail Emoji Tag
+            // Custom dynamic Discord format with updated Group URL
             const announcementText = 
 `### <:suitcasewalk:1414277649395749046> Server Unlocked
 -# <:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>
@@ -96,13 +159,17 @@ function startWebServer(client) {
 > The server has **been unlocked** for all passengers travelling on flight <:Wnewtail:1272656069910462464> **${flightNumStr}** to **${arrival}** via **${departure}**. All passengers are now invited to join the flight server in preparation for departure.
 <:arrow1:1414277637135925318> Please be advised that the server will remain open throughout the duration of the flight and passengers will be teleported directly onto the aircraft if they arrive too late. Should you require further information or support, please reach out to an on duty personnel.
 
--# <:link:1414278009573347328> **[Join Now](https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport)**
--# <:roblox:1414277676855857172> **[Roblox Group](<https://www.roblox.com/communities/16137621/w-zzair-rblx#!/about>)**`;
+-# <:link:1414278009573347328> **[Join Now](${joinLink})**
+-# <:roblox:1414277676855857172> **[Roblox Group](<https://www.roblox.com/communities/822510972/w-zzair-rblx#!/about>)**`;
 
             await channel.send({ content: announcementText });
-            console.log(`[Roblox API Success] Shoutout sent for flight ${flightNumStr}`);
+            console.log(`[Roblox API Success] Shoutout sent for flight ${flightNumStr} (${departure} -> ${arrival})`);
             
-            return res.status(200).json({ success: true, message: 'Shoutout sent successfully!' });
+            return res.status(200).json({ 
+                success: true, 
+                message: 'Shoutout sent successfully!',
+                flight: { flightNumStr, departure, arrival, joinLink }
+            });
 
         } catch (err) {
             console.error('[Roblox API /shoutout Error]', err);
