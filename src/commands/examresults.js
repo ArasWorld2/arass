@@ -28,7 +28,7 @@ module.exports = {
         const outOf = interaction.options.getInteger('outof');
         const examType = interaction.options.getString('examtype') || 'Recruitment Assessment';
 
-        // Clean user ID input (removes any accidental spaces or mention characters <@...>)
+        // Clean user ID input
         const studentId = studentIdRaw.replace(/[^0-9]/g, '');
 
         if (!studentId) {
@@ -78,10 +78,9 @@ module.exports = {
 <:arrow:1414277373909794937> Your examination result of **${percentage}%** is below the required **80%** pass mark. We encourage you to review the study materials and re-apply for your assessment in the future. We thank you for your time and effort throughout the assessment process!`;
         }
 
+        // No @ping at top - starts directly with header
         const dmAnnouncementText = 
-`<@${student.id}>
-
-### <:care:1414277804555632801> **Examination Results** (\`${examType}\`)
+`### <:care:1414277804555632801> **Examination Results** (\`${examType}\`)
 <:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>
 
 ${resultMessageBlock}
@@ -91,7 +90,6 @@ ${resultMessageBlock}
 > -# Wizz Air, **Fly Greenest** <:flygreen:1272674839441965056>`;
 
         try {
-            // Send DM to user
             await student.send({ content: dmAnnouncementText });
 
             return interaction.reply({ 
@@ -101,7 +99,7 @@ ${resultMessageBlock}
         } catch (error) {
             console.error(`Failed to DM ${student.tag}:`, error);
             return interaction.reply({ 
-                content: `❌ Could not send DM to **${student.tag}** (\`${student.id}\`). They likely have DMs disabled or do not share a server with the bot!`, 
+                content: `❌ Could not send DM to **${student.tag}** (\`${student.id}\`). They likely have DMs disabled!`, 
                 ephemeral: true 
             });
         }
