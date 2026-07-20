@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Allocation = require('../models/Allocation'); 
 
 const app = express();
@@ -12,7 +13,7 @@ function startWebServer(client) {
 
     // Health check endpoint
     app.get('/', (req, res) => {
-        res.send('OK - Roblox Webhook Server Online!');
+        return res.send('OK - Roblox Webhook Server Online!');
     });
 
     // 1. Endpoint: Updates active flight number (:setflight <number>)
@@ -31,33 +32,35 @@ function startWebServer(client) {
         const { secret } = req.body;
         if (secret !== SECRET_KEY) return res.status(403).json({ error: 'Unauthorized key' });
 
-        const mainGuildId = process.env.GUILD_ID;
         const targetChannelId = process.env.SO_CHANNEL_ID;
 
         if (!targetChannelId) {
-            console.error('[Roblox API Error] SO_CHANNEL_ID variable missing');
-            return res.status(500).json({ error: 'SO_CHANNEL_ID is not set.' });
+            console.error('[Roblox API Error] SO_CHANNEL_ID environment variable is missing.');
+            return res.status(500).json({ error: 'SO_CHANNEL_ID is not configured on Railway.' });
         }
 
         try {
-            // Fetch channel directly
-            const channel = await client.channels.fetch(targetChannelId).catch(err => {
-                console.error('[Discord Fetch Error]', err);
-                return null;
-            });
+            // Fetch channel directly from cache/Discord API
+            const channel = client.channels.cache.get(targetChannelId) || await client.channels.fetch(targetChannelId).catch(() => null);
 
             if (!channel) {
-                return res.status(404).json({ error: `Could not fetch channel ID ${targetChannelId}` });
+                console.error(`[Roblox API Error] Could not find Discord channel ID: ${targetChannelId}`);
+                return res.status(404).json({ error: `Channel ID ${targetChannelId} could not be found.` });
             }
 
-            // Search MongoDB with a strict 3-second timeout safety net
             let allocation = null;
-            try {
-                allocation = await Allocation.findOne({ 
-                    'flight.number': { $regex: new RegExp(`^${activeFlightNumber}$`, 'i') } 
-                }).maxTimeMS(3000);
-            } catch (dbErr) {
-                console.warn('[MongoDB Timeout/Error] Using default fallback values:', dbErr.message);
+
+            // ⚡ FAST DB CHECK: Only query if MongoDB is actively connected (readyState === 1)
+            if (mongoose.connection.readyState === 1) {
+                try {
+                    allocation = await Allocation.findOne({ 
+                        'flight.number': { $regex: new RegExp(`^${activeFlightNumber}$`, 'i') } 
+                    }).maxTimeMS(2000);
+                } catch (dbErr) {
+                    console.warn('[MongoDB Warning] Query bypassed:', dbErr.message);
+                }
+            } else {
+                console.warn('[MongoDB Warning] Database not connected. Using template fallback values.');
             }
 
             const flight = allocation?.flight || {};
@@ -67,7 +70,7 @@ function startWebServer(client) {
             const departure = flight.departure || flight.from || 'Gdańsk Lech Wałęsa Airport';
             const arrival = flight.arrival || flight.to || 'Tirana International Airport Nënë Tereza';
 
-            // Custom Formatted Announcement
+            // Announcement Template
             const announcementText = 
 `### <:suitcasewalk:1414277649395749046> Server Unlocked
 -# :blank: \`Fly Greenest\` :flygreen:
@@ -78,10 +81,11 @@ function startWebServer(client) {
 -# <:link:1414278009573347328> **[Join Now](https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport)**
 -# <:roblox:1414277676855857172> **[Roblox Group](<https://www.roblox.com/communities/16137621/w-zzair-rblx#!/about>)**`;
 
+            // Send message to Discord
             await channel.send({ content: announcementText });
 
-            console.log(`[Roblox API Success] Shoutout sent for ${flightNumStr}!`);
-            return res.json({ success: true, message: 'Shoutout posted successfully!' });
+            console.log(`[Roblox API Success] Sent shoutout for flight ${flightNumStr}!`);
+            return res.json({ success: true, message: 'Shoutout sent successfully!' });
 
         } catch (err) {
             console.error('[Roblox API Error]', err);
@@ -89,7 +93,6 @@ function startWebServer(client) {
         }
     });
 
-    // Explicit binding to 0.0.0.0
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`🌐 Roblox Webhook API Server online on port ${PORT}`);
     });
