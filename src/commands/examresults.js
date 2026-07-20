@@ -3,11 +3,11 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('examresults')
-        .setDescription('Post examination results for a student')
+        .setDescription('DM examination results directly to a student using their Discord ID')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages) // Restrict to Staff/Admins
-        .addUserOption(option =>
-            option.setName('student')
-                .setDescription('The candidate who took the exam')
+        .addStringOption(option =>
+            option.setName('studentid')
+                .setDescription('The Discord User ID of the candidate')
                 .setRequired(true))
         .addIntegerOption(option =>
             option.setName('score')
@@ -23,13 +23,31 @@ module.exports = {
                 .setRequired(false)),
 
     async execute(interaction) {
-        const student = interaction.options.getUser('student');
+        const studentIdRaw = interaction.options.getString('studentid');
         const score = interaction.options.getInteger('score');
         const outOf = interaction.options.getInteger('outof');
         const examType = interaction.options.getString('examtype') || 'Recruitment Assessment';
 
+        // Clean user ID input (removes any accidental spaces or mention characters <@...>)
+        const studentId = studentIdRaw.replace(/[^0-9]/g, '');
+
+        if (!studentId) {
+            return interaction.reply({ content: '❌ Invalid Discord User ID provided.', ephemeral: true });
+        }
+
         if (outOf <= 0) {
-            return interaction.reply({ content: '❌ The "outof" value must be greater than 0.', flags: 64 });
+            return interaction.reply({ content: '❌ The "outof" value must be greater than 0.', ephemeral: true });
+        }
+
+        // Fetch User by ID
+        let student;
+        try {
+            student = await interaction.client.users.fetch(studentId);
+        } catch (fetchErr) {
+            return interaction.reply({ 
+                content: `❌ Could not find any Discord user with the ID \`${studentId}\`. Please check the ID and try again!`, 
+                ephemeral: true 
+            });
         }
 
         // Percentage & Pass/Fail Calculations
@@ -60,7 +78,7 @@ module.exports = {
 <:arrow:1414277373909794937> Your examination result of **${percentage}%** is below the required **80%** pass mark. We encourage you to review the study materials and re-apply for your assessment in the future. We thank you for your time and effort throughout the assessment process!`;
         }
 
-        const announcementText = 
+        const dmAnnouncementText = 
 `<@${student.id}>
 
 ### <:care:1414277804555632801> **Examination Results** (\`${examType}\`)
@@ -72,7 +90,20 @@ ${resultMessageBlock}
 > -# **Onboarding Office**, Recruitment Department <:group:1414277778794221649>
 > -# Wizz Air, **Fly Greenest** <:flygreen:1272674839441965056>`;
 
-        // Send public announcement in channel
-        await interaction.reply({ content: announcementText });
+        try {
+            // Send DM to user
+            await student.send({ content: dmAnnouncementText });
+
+            return interaction.reply({ 
+                content: `✅ Successfully sent DM examination results to **${student.tag}** (\`${student.id}\`)! (${percentage}% - ${passed ? 'PASSED' : 'FAILED'})`, 
+                ephemeral: true 
+            });
+        } catch (error) {
+            console.error(`Failed to DM ${student.tag}:`, error);
+            return interaction.reply({ 
+                content: `❌ Could not send DM to **${student.tag}** (\`${student.id}\`). They likely have DMs disabled or do not share a server with the bot!`, 
+                ephemeral: true 
+            });
+        }
     }
 };
