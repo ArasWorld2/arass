@@ -27,58 +27,63 @@ function startWebServer(client) {
     // =========================================================================
     // EASY DATABASE SEEDER: Visit https://YOUR-URL/api/seed in your browser!
     // =========================================================================
-app.get('/api/seed', async (req, res) => {
-    try {
-        if (!Allocation || mongoose.connection.readyState !== 1) {
-            return res.status(500).json({ success: false, error: 'MongoDB is not connected!' });
-        }
-
-        const sampleFlights = [
-            {
-                messageId: "SEED-W61799",
-                flight: {
-                    number: "W61799",
-                    departure: "Gdansk",
-                    arrival: "Tirana",
-                    gameLink: "https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport"
-                }
-            },
-            {
-                messageId: "SEED-W62204",
-                flight: {
-                    number: "W62204",
-                    departure: "London Luton",
-                    arrival: "Budapest",
-                    gameLink: "https://www.roblox.com/games/121134102391740/London-Luton-Airport"
-                }
-            },
-            {
-                messageId: "SEED-W61301",
-                flight: {
-                    number: "W61301",
-                    departure: "Warsaw Chopin",
-                    arrival: "Rome Fiumicino",
-                    gameLink: "https://www.roblox.com/games/121134102391740/Warsaw-Chopin-Airport"
-                }
+    app.get('/api/seed', async (req, res) => {
+        try {
+            if (!Allocation || mongoose.connection.readyState !== 1) {
+                return res.status(500).json({ success: false, error: 'MongoDB is not connected!' });
             }
-        ];
 
-        for (const item of sampleFlights) {
-            await Allocation.updateOne(
-                { 'flight.number': item.flight.number },
-                { $set: item },
-                { upsert: true }
-            );
+            const sampleFlights = [
+                {
+                    messageId: "SEED-W61799",
+                    flight: {
+                        number: "W61799",
+                        departure: "Gdansk",
+                        arrival: "Tirana",
+                        gameLink: "https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED-W62204",
+                    flight: {
+                        number: "W62204",
+                        departure: "London Luton",
+                        arrival: "Budapest",
+                        gameLink: "https://www.roblox.com/games/121134102391740/London-Luton-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED-W61301",
+                    flight: {
+                        number: "W61301",
+                        departure: "Warsaw Chopin",
+                        arrival: "Rome Fiumicino",
+                        gameLink: "https://www.roblox.com/games/121134102391740/Warsaw-Chopin-Airport"
+                    }
+                }
+            ];
+
+            for (const item of sampleFlights) {
+                await Allocation.updateOne(
+                    { 
+                        $or: [
+                            { 'flight.number': item.flight.number },
+                            { 'flightNumber': item.flight.number }
+                        ]
+                    },
+                    { $set: item },
+                    { upsert: true }
+                );
+            }
+
+            return res.status(200).json({ 
+                success: true, 
+                message: 'Successfully inserted/updated all 3 flights into MongoDB!' 
+            });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: err.message });
         }
-
-        return res.status(200).json({ 
-            success: true, 
-            message: 'Successfully inserted/updated all 3 flights into MongoDB!' 
-        });
-    } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
-    }
-});
+    });
 
     // =========================================================================
     // 1. SET ACTIVE FLIGHT (:setflight <flightNumber>)
@@ -135,12 +140,17 @@ app.get('/api/seed', async (req, res) => {
                 return res.status(200).json({ success: false, error: `Channel ID ${targetChannelId} does not exist.` });
             }
 
-            // Query MongoDB for the current active flight
+            // Query MongoDB flexible schema fields
             let allocation = null;
             if (Allocation && mongoose.connection.readyState === 1) {
                 try {
-                    allocation = await Allocation.findOne({ 
-                        'flight.number': { $regex: new RegExp(`^${activeFlightNumber}$`, 'i') } 
+                    const searchRegex = new RegExp(`^${activeFlightNumber}$`, 'i');
+                    allocation = await Allocation.findOne({
+                        $or: [
+                            { 'flight.number': searchRegex },
+                            { 'flight.flightNumber': searchRegex },
+                            { 'flightNumber': searchRegex }
+                        ]
                     }).maxTimeMS(1500).exec();
                 } catch (dbErr) {
                     console.warn('[MongoDB Warning] Query skipped:', dbErr.message);
@@ -148,13 +158,13 @@ app.get('/api/seed', async (req, res) => {
             }
 
             // Dynamic fields with safe fallback defaults
-            const flight = allocation?.flight || {};
-            const flightNumStr = flight.number || activeFlightNumber || 'W61799';
-            const departure = flight.departure || flight.from || 'Gdansk';
-            const arrival = flight.arrival || flight.to || 'Tirana';
-            const joinLink = flight.gameLink || 'https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport';
+            const flight = allocation?.flight || allocation || {};
+            const flightNumStr = flight.number || flight.flightNumber || activeFlightNumber || 'W61799';
+            const departure = flight.departure || flight.from || flight.dep || 'Gdansk';
+            const arrival = flight.arrival || flight.to || flight.arr || 'Tirana';
+            const joinLink = flight.gameLink || flight.link || 'https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport';
 
-            // Custom dynamic Discord format with updated Group URL
+            // Custom dynamic Discord format
             const announcementText = 
 `### <:suitcasewalk:1414277649395749046> Server Unlocked
 -# <:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>
