@@ -24,7 +24,7 @@ function startWebServer(client) {
         return res.status(200).send('OK - Roblox Webhook Server Online!');
     });
 
-    // =========================================================================
+// =========================================================================
     // EASY DATABASE SEEDER: Visit https://YOUR-URL/api/seed in your browser!
     // =========================================================================
     app.get('/api/seed', async (req, res) => {
@@ -65,12 +65,7 @@ function startWebServer(client) {
 
             for (const item of sampleFlights) {
                 await Allocation.updateOne(
-                    { 
-                        $or: [
-                            { 'flight.number': item.flight.number },
-                            { 'flightNumber': item.flight.number }
-                        ]
-                    },
+                    { 'flight.number': item.flight.number },
                     { $set: item },
                     { upsert: true }
                 );
