@@ -1,7 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
 
-// Relative path to Allocation model from src/web/
 let Allocation;
 try {
     Allocation = require('../models/Allocation');
@@ -12,26 +11,28 @@ try {
 const app = express();
 app.use(express.json());
 
-// Default active flight on boot
 let activeFlightNumber = 'W61799';
 
 function startWebServer(client) {
     const PORT = 8080;
     const SECRET_KEY = process.env.ROBLOX_SECRET_KEY || 'WizzAirSecretKey2026';
 
-    // Health check endpoint
+    // Health check
     app.get('/', (req, res) => {
         return res.status(200).send('OK - Roblox Webhook Server Online!');
     });
 
-// =========================================================================
-    // EASY DATABASE SEEDER: Visit https://YOUR-URL/api/seed in your browser!
+    // =========================================================================
+    // SEED ENDPOINT (Direct Mongo Driver to avoid schema limits)
     // =========================================================================
     app.get('/api/seed', async (req, res) => {
         try {
-            if (!Allocation || mongoose.connection.readyState !== 1) {
+            if (mongoose.connection.readyState !== 1) {
                 return res.status(500).json({ success: false, error: 'MongoDB is not connected!' });
             }
+
+            const db = mongoose.connection.db;
+            const collection = db.collection('allocations');
 
             const sampleFlights = [
                 {
@@ -64,8 +65,8 @@ function startWebServer(client) {
             ];
 
             for (const item of sampleFlights) {
-                await Allocation.updateOne(
-                    { 'flight.number': item.flight.number },
+                await collection.updateOne(
+                    { $or: [{ 'flight.number': item.flight.number }, { 'flightNumber': item.flight.number }] },
                     { $set: item },
                     { upsert: true }
                 );
@@ -73,15 +74,16 @@ function startWebServer(client) {
 
             return res.status(200).json({ 
                 success: true, 
-                message: 'Successfully inserted/updated all 3 flights into MongoDB!' 
+                message: 'Successfully seeded 3 flights into allocations collection via Native Driver!' 
             });
         } catch (err) {
+            console.error('[Seed Error]', err);
             return res.status(500).json({ success: false, error: err.message });
         }
     });
 
     // =========================================================================
-    // 1. SET ACTIVE FLIGHT (:setflight <flightNumber>)
+    // 1. SET ACTIVE FLIGHT
     // =========================================================================
     app.post('/api/set-flight', (req, res) => {
         try {
@@ -104,7 +106,7 @@ function startWebServer(client) {
     });
 
     // =========================================================================
-    // 2. DISCORD ANNOUNCEMENT SHOUTOUT (:so)
+    // 2. DISCORD ANNOUNCEMENT SHOUTOUT
     // =========================================================================
     app.post('/api/shoutout', async (req, res) => {
         try {
@@ -118,7 +120,6 @@ function startWebServer(client) {
                 return res.status(200).json({ success: false, error: 'SO_CHANNEL_ID is not configured on Railway.' });
             }
 
-            // Fetch Discord Channel safely
             let channel = client.channels?.cache.get(targetChannelId);
             if (!channel) {
                 try {
@@ -135,31 +136,40 @@ function startWebServer(client) {
                 return res.status(200).json({ success: false, error: `Channel ID ${targetChannelId} does not exist.` });
             }
 
-            // Query MongoDB flexible schema fields
-            let allocation = null;
-            if (Allocation && mongoose.connection.readyState === 1) {
+            // DIRECT MONGODB LOOKUP
+            let doc = null;
+            if (mongoose.connection.readyState === 1) {
                 try {
+                    const db = mongoose.connection.db;
+                    const collections = await db.listCollections().toArray();
+                    console.log('[Mongo DB Debug] Active collections in database:', collections.map(c => c.name));
+
+                    const targetCollection = db.collection('allocations');
                     const searchRegex = new RegExp(`^${activeFlightNumber}$`, 'i');
-                    allocation = await Allocation.findOne({
+
+                    doc = await targetCollection.findOne({
                         $or: [
                             { 'flight.number': searchRegex },
                             { 'flight.flightNumber': searchRegex },
                             { 'flightNumber': searchRegex }
                         ]
-                    }).maxTimeMS(1500).exec();
+                    });
+
+                    console.log(`[Mongo Search Debug] Querying for "${activeFlightNumber}" -> Found Doc:`, doc);
                 } catch (dbErr) {
-                    console.warn('[MongoDB Warning] Query skipped:', dbErr.message);
+                    console.error('[MongoDB Lookup Error]', dbErr);
                 }
+            } else {
+                console.warn('[MongoDB Warning] Connection state is not connected (readyState != 1)');
             }
 
-            // Dynamic fields with safe fallback defaults
-            const flight = allocation?.flight || allocation || {};
+            // Extract dynamic fields from the document
+            const flight = doc?.flight || doc || {};
             const flightNumStr = flight.number || flight.flightNumber || activeFlightNumber || 'W61799';
             const departure = flight.departure || flight.from || flight.dep || 'Gdansk';
             const arrival = flight.arrival || flight.to || flight.arr || 'Tirana';
             const joinLink = flight.gameLink || flight.link || 'https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport';
 
-            // Custom dynamic Discord format
             const announcementText = 
 `### <:suitcasewalk:1414277649395749046> Server Unlocked
 -# <:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>
