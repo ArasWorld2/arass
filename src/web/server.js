@@ -10,6 +10,11 @@ function startWebServer(client) {
     const PORT = process.env.PORT || 3000;
     const SECRET_KEY = process.env.ROBLOX_SECRET_KEY || 'WizzAirSecretKey2026';
 
+    // Health check endpoint
+    app.get('/', (req, res) => {
+        res.send('OK - Roblox Webhook Server Online!');
+    });
+
     // 1. Endpoint: Updates active flight number (:setflight <number>)
     app.post('/api/set-flight', (req, res) => {
         const { secret, flightNumber } = req.body;
@@ -29,37 +34,40 @@ function startWebServer(client) {
         const mainGuildId = process.env.GUILD_ID;
         const targetChannelId = process.env.SO_CHANNEL_ID;
 
-        if (!mainGuildId || !targetChannelId) {
-            console.error('[Roblox API Error] GUILD_ID or SO_CHANNEL_ID variable is missing in environment settings.');
-            return res.status(500).json({ error: 'GUILD_ID or SO_CHANNEL_ID environment variable is not set on Railway.' });
+        if (!targetChannelId) {
+            console.error('[Roblox API Error] SO_CHANNEL_ID variable missing');
+            return res.status(500).json({ error: 'SO_CHANNEL_ID is not set.' });
         }
 
         try {
-            // 🏰 1. Fetch the server using GUILD_ID
-            const guild = await client.guilds.fetch(mainGuildId).catch(() => null);
-            if (!guild) {
-                return res.status(404).json({ error: `Guild ID ${mainGuildId} could not be found by the bot.` });
-            }
-
-            // 📢 2. Fetch the channel inside that guild using SO_CHANNEL_ID
-            const channel = await guild.channels.fetch(targetChannelId).catch(() => null);
-            if (!channel) {
-                return res.status(404).json({ error: `Channel ID ${targetChannelId} could not be found inside server "${guild.name}".` });
-            }
-
-            // Search MongoDB for flight details matching activeFlightNumber
-            const allocation = await Allocation.findOne({ 
-                'flight.number': { $regex: new RegExp(`^${activeFlightNumber}$`, 'i') } 
+            // Fetch channel directly
+            const channel = await client.channels.fetch(targetChannelId).catch(err => {
+                console.error('[Discord Fetch Error]', err);
+                return null;
             });
+
+            if (!channel) {
+                return res.status(404).json({ error: `Could not fetch channel ID ${targetChannelId}` });
+            }
+
+            // Search MongoDB with a strict 3-second timeout safety net
+            let allocation = null;
+            try {
+                allocation = await Allocation.findOne({ 
+                    'flight.number': { $regex: new RegExp(`^${activeFlightNumber}$`, 'i') } 
+                }).maxTimeMS(3000);
+            } catch (dbErr) {
+                console.warn('[MongoDB Timeout/Error] Using default fallback values:', dbErr.message);
+            }
 
             const flight = allocation?.flight || {};
 
             // Dynamic fields with fallbacks
-            const flightNumStr = flight.number || 'W6 1799';
+            const flightNumStr = flight.number || activeFlightNumber || 'W6 1799';
             const departure = flight.departure || flight.from || 'Gdańsk Lech Wałęsa Airport';
             const arrival = flight.arrival || flight.to || 'Tirana International Airport Nënë Tereza';
 
-            // Custom Formatted Text Block
+            // Custom Formatted Announcement
             const announcementText = 
 `### <:suitcasewalk:1414277649395749046> Server Unlocked
 -# :blank: \`Fly Greenest\` :flygreen:
@@ -72,11 +80,8 @@ function startWebServer(client) {
 
             await channel.send({ content: announcementText });
 
-            console.log(`[Roblox API Success] Announcement posted to #${channel.name} in ${guild.name}`);
-            return res.json({ 
-                success: true, 
-                message: `Server Unlocked shoutout sent to #${channel.name} inside ${guild.name}!` 
-            });
+            console.log(`[Roblox API Success] Shoutout sent for ${flightNumStr}!`);
+            return res.json({ success: true, message: 'Shoutout posted successfully!' });
 
         } catch (err) {
             console.error('[Roblox API Error]', err);
@@ -84,7 +89,8 @@ function startWebServer(client) {
         }
     });
 
-    app.listen(PORT, () => {
+    // Explicit binding to 0.0.0.0
+    app.listen(PORT, '0.0.0.0', () => {
         console.log(`🌐 Roblox Webhook API Server online on port ${PORT}`);
     });
 }
