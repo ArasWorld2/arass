@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -23,29 +23,31 @@ module.exports = {
                 .setRequired(false)),
 
     async execute(interaction) {
+        // Defer reply immediately so Discord doesn't time out the interaction
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
         const studentIdRaw = interaction.options.getString('studentid');
         const score = interaction.options.getInteger('score');
         const outOf = interaction.options.getInteger('outof');
         const examType = interaction.options.getString('examtype') || 'Recruitment Assessment';
 
-        // Clean user ID input (removes non-numeric characters)
+        // Clean user ID input
         const studentId = studentIdRaw.replace(/[^0-9]/g, '');
 
         if (!studentId) {
-            return interaction.reply({ content: '❌ Invalid Discord User ID provided.', ephemeral: true });
+            return interaction.editReply({ content: '❌ Invalid Discord User ID provided.' });
         }
 
         if (outOf <= 0) {
-            return interaction.reply({ content: '❌ The "outof" value must be greater than 0.', ephemeral: true });
+            return interaction.editReply({ content: '❌ The "outof" value must be greater than 0.' });
         }
 
         let student;
         try {
             student = await interaction.client.users.fetch(studentId);
         } catch (fetchErr) {
-            return interaction.reply({ 
-                content: `❌ Could not find any Discord user with ID \`${studentId}\`.`, 
-                ephemeral: true 
+            return interaction.editReply({ 
+                content: `❌ Could not find any Discord user with ID \`${studentId}\`.` 
             });
         }
 
@@ -87,18 +89,15 @@ module.exports = {
             .setTimestamp();
 
         try {
-            // Send embed payload ONLY
             await student.send({ embeds: [examEmbed] });
 
-            return interaction.reply({ 
-                content: `✅ Sent embedded results to **${student.tag}** (\`${student.id}\`)! (${percentage}% - ${passed ? 'PASSED' : 'FAILED'})`, 
-                ephemeral: true 
+            return interaction.editReply({ 
+                content: `✅ Sent embedded results to **${student.tag}** (\`${student.id}\`)! (${percentage}% - ${passed ? 'PASSED' : 'FAILED'})` 
             });
         } catch (error) {
             console.error(`Failed to DM ${student.tag}:`, error);
-            return interaction.reply({ 
-                content: `❌ Could not send DM to **${student.tag}**. DMs might be disabled!`, 
-                ephemeral: true 
+            return interaction.editReply({ 
+                content: `❌ Could not send DM to **${student.tag}**. DMs might be disabled!` 
             });
         }
     }
