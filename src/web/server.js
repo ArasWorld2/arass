@@ -45,12 +45,12 @@ function startWebServer(client) {
                     }
                 },
                 {
-                    messageId: "SEED-W62204",
+                    messageId: "SEED-W45139",
                     flight: {
-                        number: "W62204",
-                        departure: "London Luton",
-                        arrival: "Budapest",
-                        gameLink: "https://www.roblox.com/games/121134102391740/London-Luton-Airport"
+                        number: "W45139",
+                        departure: "Tirana Nënë Tereza Airport",
+                        arrival: "Paris Beauvais Airport",
+                        gameLink: "https://www.roblox.com/games/90080052497848/Tirana-International-Airport-N-n-Tereza"
                     }
                 },
                 {
