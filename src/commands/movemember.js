@@ -1,5 +1,5 @@
 const { checkRole } = require('../utils/checkRole');
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const Allocation = require('../models/Allocation');
 const { getRoleConfig, buildMainEmbed, buildButtons, ROLES } = require('../utils/embeds');
 
@@ -23,7 +23,7 @@ module.exports = {
 
   async execute(interaction) {
     if (!await checkRole(interaction)) return;
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const messageId  = interaction.options.getString('message_id');
     const user       = interaction.options.getUser('user');
@@ -87,7 +87,22 @@ module.exports = {
       await message.edit({ embeds: [buildMainEmbed(allocation.flight, allocation)], components: buildButtons() });
     } catch {}
 
-    // Log
+    // Send DM Alert to the moved user
+    let dmSent = false;
+    try {
+      const flightNum = allocation.flight?.number || 'LOXXXX';
+      await user.send(
+        `✈️ **Flight Allocation Update — Flight ${flightNum}**\n` +
+        `You have been moved to a new role assignment by an administrator.\n\n` +
+        `• **Previous Role:** ${fromConfig.label}\n` +
+        `• **New Role:** ${toConfig.label}`
+      );
+      dmSent = true;
+    } catch {
+      console.warn(`Could not send DM to user ${user.id} (DMs might be disabled).`);
+    }
+
+    // Log action
     const logChannelId = process.env.LOG_CHANNEL_ID;
     if (logChannelId) {
       try {
@@ -96,6 +111,7 @@ module.exports = {
       } catch {}
     }
 
-    return interaction.editReply(`✅ Moved <@${user.id}> from **${fromConfig.label}** to **${toConfig.label}**.`);
+    const dmNotice = dmSent ? ' (Member notified via DM)' : ' (Failed to DM member)';
+    return interaction.editReply(`✅ Moved <@${user.id}> from **${fromConfig.label}** to **${toConfig.label}**.${dmNotice}`);
   },
 };
