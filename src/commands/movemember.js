@@ -92,8 +92,8 @@ module.exports = {
     try {
       const flightNum = allocation.flight?.number || 'LOXXXX';
       await user.send(
-        `✈️ **Flight Allocation Update — Flight ${flightNum}**\n` +
-        `You have been moved to a new role assignment by an administrator.\n\n` +
+        `**Flight Allocation Update — Flight ${flightNum}**\n` +
+        `Your roles have been changed, please advert your new roles below\n\n` +
         `• **Previous Role:** ${fromConfig.label}\n` +
         `• **New Role:** ${toConfig.label}`
       );
