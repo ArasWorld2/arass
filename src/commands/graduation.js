@@ -4,11 +4,11 @@ const { checkRole } = require('../utils/checkRole');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('graduation')
-    .setDescription('Send an Apprenticeship Onboarding embed notification to a member via Direct Message')
+    .setDescription('Send an Apprenticeship Onboarding embed notification to multiple members via Direct Message')
     .addStringOption(option => 
       option
-        .setName('user_id')
-        .setDescription('The Discord User ID of the graduating member')
+        .setName('user_ids')
+        .setDescription('Discord User IDs separated by space or comma (e.g. 12345 67890)')
         .setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
@@ -17,14 +17,13 @@ module.exports = {
     if (!await checkRole(interaction)) return;
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const userId = interaction.options.getString('user_id').trim();
+    const rawInput = interaction.options.getString('user_ids');
+    
+    // Split input by commas or spaces and extract unique non-empty IDs
+    const userIds = [...new Set(rawInput.split(/[\s,]+/).filter(id => id.length > 0))];
 
-    // Fetch user profile from Discord
-    let targetUser;
-    try {
-      targetUser = await interaction.client.users.fetch(userId);
-    } catch {
-      return interaction.editReply(`❌ Invalid User ID provided: \`${userId}\`. Could not find this user.`);
+    if (userIds.length === 0) {
+      return interaction.editReply('❌ Please provide at least one valid User ID.');
     }
 
     // Build Discord Embed with color #D3007F
@@ -39,18 +38,32 @@ module.exports = {
         `-# Once you join, please await verification by a member of the Management Board. You will be provided further information after you are successfully verified.`
       );
 
-    let dmSent = false;
-    try {
-      await targetUser.send({ embeds: [embed] });
-      dmSent = true;
-    } catch {
-      console.warn(`Could not send Graduation DM to user ${userId} (DMs might be disabled).`);
+    const successful = [];
+    const failed = [];
+
+    // Loop through all provided user IDs
+    for (const userId of userIds) {
+      try {
+        const targetUser = await interaction.client.users.fetch(userId);
+        await targetUser.send({ embeds: [embed] });
+        successful.push(`<@${userId}>`);
+      } catch (err) {
+        console.warn(`Could not send Graduation DM to user ID ${userId}:`, err.message);
+        failed.push(`\`${userId}\``);
+      }
     }
 
-    if (dmSent) {
-      return interaction.editReply(`✅ Successfully sent graduation embed DM to <@${targetUser.id}> (\`${targetUser.id}\`)!`);
-    } else {
-      return interaction.editReply(`⚠️ Graduation command completed, but could not DM <@${targetUser.id}> (DMs are disabled for this user).`);
+    // Build summary response
+    let responseText = `**Graduation Onboarding Dispatcher Summary**\n\n`;
+
+    if (successful.length > 0) {
+      responseText += `✅ **DMs Sent Successfully (${successful.length}):**\n${successful.join(', ')}\n\n`;
     }
+
+    if (failed.length > 0) {
+      responseText += `⚠️ **Failed to DM / Invalid ID (${failed.length}):**\n${failed.join(', ')}`;
+    }
+
+    return interaction.editReply(responseText);
   },
 };
