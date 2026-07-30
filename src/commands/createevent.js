@@ -53,7 +53,7 @@ module.exports = {
 
     // Build event description matching your exact screenshot format
     const description = 
-      `<:wizzicon:1272674839441965056> **${flightNumber}** has been scheduled and is set to depart from **${departureAirport}**. For more details and information in regards to your departure, please click here.\n\n` +
+      `<:takeoff:1414277645134200955> **${flightNumber}** has been scheduled and is set to depart from **${departureAirport}**. For more details and information in regards to your departure, please click here.\n\n` +
       `**Flight Number:** ${flightNumber}\n` +
       `**Date:** ${dateHammertime}\n` +
       `**Departure Time:** ${timeHammertime}\n` +
