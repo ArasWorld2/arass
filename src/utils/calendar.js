@@ -203,7 +203,7 @@ async function checkUpcomingDepartures(client) {
           `### <:takeoff:1414277645134200955> Scheduled Flight\n` +
           `-# <:blank:1296498991114227763> \`${formattedDate}\` \n\n` +
           `> We would like to remind you that flight **${cleanEventName}** is scheduled to depart **${relativeHammerTime}**. For your convenience, all **relevant details for the departure** may be found in the event card shared below. If you have any inquiries or concerns about the upcoming itinerary, please don't hesitate to let us know through contacting **<@1297542149620891788>**.\n` +
-          ` <:announcement:1414277746233708669> Please be advised that you must be a member of our [**Roblox Group**](<https://www.roblox.com/communities/822510972/w-zzair-rblx#!/about>) to join flights. On behalf of **Air Dolomiti**, we wish you a pleasant journey.\n\n` +
+          ` <:announcement:1414277746233708669> Please be advised that you must be a member of our [**Roblox Group**](<https://www.roblox.com/communities/822510972/w-zzair-rblx#!/about>) to join flights. On behalf of **Wizz Air**, we wish you a pleasant journey.\n\n` +
           `-# <:link:1414278009573347328> [**${cleanEventName}**](<${event.url}>)`;
 
         await departuresChannel.send({ 
