@@ -1,29 +1,30 @@
 const { EmbedBuilder, GuildScheduledEventStatus } = require('discord.js');
 
-// TRACKER CACHE: Keeps a memory of IDs that have ALREADY been announced
+// TRACKER CACHE: Keeps a memory of IDs that have ALREADY received a 20-hour alert
 const announcedFlightIds = new Set();
 let isUpdating = false;
 let isCacheInitialized = false;
 
-// Scans the channel history to see what was already posted before a restart
+// Scans channel history specifically for existing 20-HOUR ALERTS (not just raw event links)
 async function initializeAnnouncedCache(channel) {
   if (isCacheInitialized) return;
   try {
-    console.log("🔍 Scanning departure channel history to prevent duplicate alerts...");
-    const messages = await channel.messages.fetch({ limit: 50 });
+    console.log("🔍 Scanning departure channel history for existing 20h alerts...");
+    const messages = await channel.messages.fetch({ limit: 100 });
     
     for (const [, msg] of messages) {
-      // Look for discord event links in old messages (e.g., https://discord.com/events/guildId/eventId)
-      const eventLinkRegex = /discord\.com\/events\/\d+\/(\d+)/;
-      const match = msg.content.match(eventLinkRegex);
-      if (match && match[1]) {
-        announcedFlightIds.add(match[1]);
+      // Only count messages that contain our specific 20-hour alert layout header
+      if (msg.content && msg.content.includes("### <:takeoff:1414277645134200955> Scheduled Flight")) {
+        const eventLinkRegex = /discord\.com\/events\/\d+\/(\d+)/;
+        const match = msg.content.match(eventLinkRegex);
+        if (match && match[1]) {
+          announcedFlightIds.add(match[1]);
+        }
       }
     }
     isCacheInitialized = true;
-    console.log(`✅ Cache initialized. Ignored ${announcedFlightIds.size} previously sent flight alerts.`);
+    console.log(`✅ Cache initialized. Ignored ${announcedFlightIds.size} previously sent 20-hour alerts.`);
   } catch (err) {
-    // If we can't scan this channel due to access rules, check the error code
     if (err.code === 50001 || err.code === 10003) return;
     console.error("⚠️ Failed to scan channel history cache:", err.message);
   }
@@ -37,7 +38,7 @@ async function updateCalendar(client) {
 
   try {
     const guild = await client.guilds.fetch(calendarGuildId);
-    const events = await guild.scheduledEvents.fetch();
+    const events = await guild.scheduledEvents.fetch({ force: true });
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -109,7 +110,7 @@ async function updateCalendar(client) {
     const channel = await client.channels.fetch(calendarChannelId);
 
     if (!calendarMessageId) {
-      console.log("🔍 No CALENDAR_MESSAGE_ID provided. Searching channel history for an existing calendar...");
+      console.log("🔍 Searching channel history for existing calendar message...");
       const history = await channel.messages.fetch({ limit: 20 });
       const existingCalendar = history.find(msg => 
         msg.author.id === client.user.id && 
@@ -119,7 +120,7 @@ async function updateCalendar(client) {
       
       if (existingCalendar) {
         calendarMessageId = existingCalendar.id;
-        console.log(`📌 Found an existing calendar message! Using ID: ${calendarMessageId}`);
+        console.log(`📌 Found calendar message ID: ${calendarMessageId}`);
       }
     }
 
@@ -129,15 +130,14 @@ async function updateCalendar(client) {
         await msg.edit({ content: '', embeds: [embed] });
         return; 
       } catch (fetchErr) {
-        console.log("Old calendar message ID was not found or couldn't be edited. Sending a new one...");
+        console.log("Old calendar message not found. Sending a new one...");
       }
     }
 
     const newMsg = await channel.send({ content: '', embeds: [embed] });
-    console.log(`📅 New Calendar posted! Update your environment variables with: CALENDAR_MESSAGE_ID=${newMsg.id}`);
+    console.log(`📅 New Calendar posted! CALENDAR_MESSAGE_ID=${newMsg.id}`);
 
   } catch (err) {
-    // Prevent console spam if calendar channel is missing access overrides
     if (err.code === 50001 || err.code === 10003) return;
     console.error('Calendar update error:', err);
   }
@@ -152,7 +152,7 @@ async function checkUpcomingDepartures(client) {
 
   try {
     const guild = await client.guilds.fetch(calendarGuildId);
-    const events = await guild.scheduledEvents.fetch();
+    const events = await guild.scheduledEvents.fetch({ force: true });
     const departuresChannel = await client.channels.fetch(departuresChannelId);
 
     await initializeAnnouncedCache(departuresChannel);
@@ -172,10 +172,12 @@ async function checkUpcomingDepartures(client) {
       const timeDiffMs = event.scheduledStartAt.getTime() - now.getTime();
       const hoursUntilDeparture = timeDiffMs / (1000 * 60 * 60);
 
+      // Skip if already announced
       if (announcedFlightIds.has(event.id)) {
         continue;
       }
 
+      // Check if event is within the 20-hour window
       if (hoursUntilDeparture <= 20 && hoursUntilDeparture > 0) {
         
         announcedFlightIds.add(event.id);
@@ -190,9 +192,12 @@ async function checkUpcomingDepartures(client) {
         const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
         const relativeHammerTime = `<t:${unixTimestamp}:R>`;
 
+        // Ghost ping role or @everyone
         const pingTarget = pingRoleId ? `<@&${pingRoleId}>` : '@everyone';
-        const ghostPingMessage = await departuresChannel.send({ content: pingTarget });
-        await ghostPingMessage.delete().catch(() => console.log("Ghost ping safe clean"));
+        try {
+          const ghostPingMessage = await departuresChannel.send({ content: pingTarget });
+          await ghostPingMessage.delete().catch(() => {});
+        } catch {}
 
         const flightAlertLayout = 
           `### <:takeoff:1414277645134200955> Scheduled Flight\n` +
@@ -205,23 +210,22 @@ async function checkUpcomingDepartures(client) {
           content: flightAlertLayout 
         });
 
-        console.log(`📢 Custom alert posted cleanly for flight: ${cleanEventName}`);
+        console.log(`📢 20-hour alert posted cleanly for flight: ${cleanEventName}`);
       }
     }
 
   } catch (err) {
-    // FIX COMPLETED: Bypass log spam entirely if it hits Missing Access (50001) or Unknown Channel (10003)
-    if (err.code === 50001 || err.code === 10003) {
-      return; 
-    }
+    if (err.code === 50001 || err.code === 10003) return;
     console.error('Error running departures alert engine:', err.message);
   }
 }
 
 function startCalendarLoop(client) {
+  // Execute initial checks immediately on startup
   updateCalendar(client);
   checkUpcomingDepartures(client); 
 
+  // Run loop every 5 minutes (300,000 ms)
   setInterval(async () => {
     if (isUpdating) return;
     isUpdating = true;
