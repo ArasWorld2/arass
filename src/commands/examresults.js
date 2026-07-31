@@ -1,104 +1,121 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
-    data: new SlashCommandBuilder()
-        .setName('examresults')
-        .setDescription('DM examination results as a native Discord embed')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
-        .addStringOption(option =>
-            option.setName('studentid')
-                .setDescription('The Discord User ID of the candidate')
-                .setRequired(true))
-        .addIntegerOption(option =>
-            option.setName('score')
-                .setDescription('The points scored by the student')
-                .setRequired(true))
-        .addIntegerOption(option =>
-            option.setName('outof')
-                .setDescription('The total possible points (what it is out of)')
-                .setRequired(true))
-        .addStringOption(option =>
-            option.setName('examtype')
-                .setDescription('Name of the exam (e.g. Ground Staff, Cabin Crew)')
-                .setRequired(false)),
+  data: new SlashCommandBuilder()
+    .setName('examresults')
+    .setDescription('DM examination results as a native Discord embed')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+    .addStringOption(option =>
+      option.setName('studentid')
+        .setDescription('The Discord User ID of the candidate')
+        .setRequired(true))
+    .addIntegerOption(option =>
+      option.setName('score')
+        .setDescription('The points scored by the student')
+        .setRequired(true))
+    .addIntegerOption(option =>
+      option.setName('outof')
+        .setDescription('The total possible points (what it is out of)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('examtype')
+        .setDescription('Name of the exam (e.g. Ground Staff, Cabin Crew)')
+        .setRequired(false))
+    .addStringOption(option =>
+      option.setName('notes')
+        .setDescription('Notes and feedback given by the invigilator')
+        .setRequired(false)),
 
-    async execute(interaction) {
-        // Defer reply immediately so Discord doesn't time out the interaction
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+  async execute(interaction) {
+    // Defer reply immediately so Discord doesn't time out the interaction
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-        const studentIdRaw = interaction.options.getString('studentid');
-        const score = interaction.options.getInteger('score');
-        const outOf = interaction.options.getInteger('outof');
-        const examType = interaction.options.getString('examtype') || 'Recruitment Assessment';
+    const studentIdRaw = interaction.options.getString('studentid');
+    const score = interaction.options.getInteger('score');
+    const outOf = interaction.options.getInteger('outof');
+    const examType = interaction.options.getString('examtype') || 'Recruitment Assessment';
+    const notes = interaction.options.getString('notes');
 
-        // Clean user ID input
-        const studentId = studentIdRaw.replace(/[^0-9]/g, '');
+    // Clean user ID input
+    const studentId = studentIdRaw.replace(/[^0-9]/g, '');
 
-        if (!studentId) {
-            return interaction.editReply({ content: '❌ Invalid Discord User ID provided.' });
-        }
-
-        if (outOf <= 0) {
-            return interaction.editReply({ content: '❌ The "outof" value must be greater than 0.' });
-        }
-
-        let student;
-        try {
-            student = await interaction.client.users.fetch(studentId);
-        } catch (fetchErr) {
-            return interaction.editReply({ 
-                content: `❌ Could not find any Discord user with ID \`${studentId}\`.` 
-            });
-        }
-
-        // Percentage & Pass/Fail Calculations
-        const percentage = Math.round((score / outOf) * 100);
-        const passed = percentage >= 80;
-
-        let mainMessage = "";
-        let statusMessage = "";
-
-        if (passed) {
-            mainMessage = "Congratulations, on behalf of the **Wizz Recruitment Department**, we are pleased to announce that you have successfully passed your examination. Your performance has met the required standard, and we are delighted to confirm your successful result.";
-            statusMessage = "Your examination has now been officially recorded, and you may now proceed with your progression within the **Wizz Academy**. We appreciate the effort and dedication you demonstrated throughout the assessment process, and we look forward to seeing your continued success. Once again, **congratulations** on your achievement!";
-        } else {
-            mainMessage = "On behalf of the **Wizz Recruitment Department**, we regret to inform you that you have not met the required pass mark for your examination.";
-            statusMessage = `Your examination result of **${percentage}%** is below the required **80%** pass mark. We encourage you to review the study materials and re-apply for your assessment in the future. We thank you for your time and effort throughout the assessment process!`;
-        }
-
-        // NATIVE DISCORD EMBED
-        const examEmbed = new EmbedBuilder()
-            .setColor('#D3007F')
-            .setTitle(`<:care:1414277804555632801> Examination Results (${examType})`)
-            .setDescription(`<:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>\n\n${mainMessage}`)
-            .addFields(
-                {
-                    name: '<:arrow:1414277373909794937> Results',
-                    value: `• **Score:** \`${score}/${outOf}\`\n• **Points:** \`${score}\`\n• **Percentage:** \`${percentage}%\``,
-                    inline: false
-                },
-                {
-                    name: '<:arrow:1414277373909794937> Status & Progression',
-                    value: `${statusMessage}`,
-                    inline: false
-                }
-            )
-            .setFooter({ 
-                text: 'Onboarding Office, Recruitment Department • Wizz Air, Fly Greenest'
-            })
-            .setTimestamp();
-
-        try {
-            await student.send({ embeds: [examEmbed] });
-
-            return interaction.editReply({ 
-                content: `✅ Sent embedded results to **${student.tag}** (\`${student.id}\`)! (${percentage}% - ${passed ? 'PASSED' : 'FAILED'})` 
-            });
-        } catch (error) {
-            console.error(`Failed to DM ${student.tag}:`, error);
-            return interaction.editReply({ 
-                content: `❌ Could not send DM to **${student.tag}**. DMs might be disabled!` 
-            });
-        }
+    if (!studentId) {
+      return interaction.editReply({ content: '❌ Invalid Discord User ID provided.' });
     }
+
+    if (outOf <= 0) {
+      return interaction.editReply({ content: '❌ The "outof" value must be greater than 0.' });
+    }
+
+    let student;
+    try {
+      student = await interaction.client.users.fetch(studentId);
+    } catch (fetchErr) {
+      return interaction.editReply({
+        content: `❌ Could not find any Discord user with ID \`${studentId}\`.`
+      });
+    }
+
+    // Percentage & Pass/Fail Calculations
+    const percentage = Math.round((score / outOf) * 100);
+    const passed = percentage >= 80;
+
+    let mainMessage = "";
+    let statusMessage = "";
+
+    if (passed) {
+      mainMessage = "Congratulations, on behalf of the **Wizz Recruitment Department**, we are pleased to announce that you have successfully passed your examination. Your performance has met the required standard, and we are delighted to confirm your successful result.";
+      statusMessage = "Your examination has now been officially recorded, and you may now proceed with your progression within the **Wizz Academy**. We appreciate the effort and dedication you demonstrated throughout the assessment process, and we look forward to seeing your continued success. Once again, **congratulations** on your achievement!";
+    } else {
+      mainMessage = "On behalf of the **Wizz Recruitment Department**, we regret to inform you that you have not met the required pass mark for your examination.";
+      statusMessage = `Your examination result of **${percentage}%** is below the required **80%** pass mark. We encourage you to review the study materials and re-apply for your assessment in the future. We thank you for your time and effort throughout the assessment process!`;
+    }
+
+    // Build fields array dynamically
+    const embedFields = [
+      {
+        name: '<:arrow:1414277373909794937> Results',
+        value: `• **Score:** \`${score}/${outOf}\`\n• **Points:** \`${score}\`\n• **Percentage:** \`${percentage}%\``,
+        inline: false
+      },
+      {
+        name: '<:arrow:1414277373909794937> Status & Progression',
+        value: `${statusMessage}`,
+        inline: false
+      }
+    ];
+
+    // If invigilator provided notes, attach them near the bottom of the embed
+    if (notes && notes.trim().length > 0) {
+      embedFields.push({
+        name: '<:arrow:1414277373909794937> Notes & Feedback',
+        value: notes.trim(),
+        inline: false
+      });
+    }
+
+    // NATIVE DISCORD EMBED
+    const examEmbed = new EmbedBuilder()
+      .setColor('#D3007F')
+      .setTitle(`<:care:1414277804555632801> Examination Results (${examType})`)
+      .setDescription(`<:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>\n\n${mainMessage}`)
+      .addFields(embedFields)
+      .setFooter({
+        text: 'Onboarding Office, Recruitment Department • Wizz Air, Fly Greenest'
+      })
+      .setTimestamp();
+
+    try {
+      await student.send({ embeds: [examEmbed] });
+
+      return interaction.editReply({
+        content: `✅ Sent embedded results to **${student.tag}** (\`${student.id}\`)! (${percentage}% - ${passed ? 'PASSED' : 'FAILED'})`
+      });
+    } catch (error) {
+      console.error(`Failed to DM ${student.tag}:`, error);
+      return interaction.editReply({
+        content: `❌ Could not send DM to **${student.tag}**. DMs might be disabled!`
+      });
+    }
+  }
 };
