@@ -36,7 +36,7 @@ function startWebServer(client) {
 
 const sampleFlights = [
       {
-        messageId: "SEED_W61799",
+        messageId: "SEED-W61799",
         flight: {
           number: "W61799",
           departure: "Gatwick",
@@ -45,7 +45,7 @@ const sampleFlights = [
         }
       },
       {
-        messageId: "SEED_W45161",
+        messageId: "SEED-W45161",
         flight: {
           number: "W4 5161",
           departure: "Tirana Nënë Tereza Airport",
@@ -54,7 +54,7 @@ const sampleFlights = [
         }
       },
       {
-        messageId: "SEED_W61301",
+        messageId: "SEED-W61301",
         flight: {
           number: "W61301",
           departure: "Warsaw Chopin",
@@ -63,7 +63,7 @@ const sampleFlights = [
         }
       },
       {
-        messageId: "SEED_W62402",
+        messageId: "SEED-W62402",
         flight: {
           number: "W6 2402",
           departure: "Budapest Airport",
@@ -72,7 +72,7 @@ const sampleFlights = [
         }
       },
       {
-        messageId: "SEED_W64411",
+        messageId: "SEED-W64411",
         flight: {
           number: "W6 4411",
           departure: "Katowice Airport",
@@ -81,7 +81,7 @@ const sampleFlights = [
         }
       },
       {
-        messageId: "SEED_W67820",
+        messageId: "SEED-W67820",
         flight: {
           number: "W6 7820",
           departure: "Vienna International",
@@ -90,7 +90,7 @@ const sampleFlights = [
         }
       },
       {
-        messageId: "SEED_W63355",
+        messageId: "SEED-W63355",
         flight: {
           number: "W6 3355",
           departure: "Milan Malpensa",
@@ -99,7 +99,7 @@ const sampleFlights = [
         }
       },
       {
-        messageId: "SEED_W68901",
+        messageId: "SEED-W68901",
         flight: {
           number: "W6 8901",
           departure: "Bucharest Otopeni",
@@ -108,7 +108,7 @@ const sampleFlights = [
         }
       },
       {
-        messageId: "SEED_W65522",
+        messageId: "SEED-W65522",
         flight: {
           number: "W6 5522",
           departure: "Sofia Airport",
