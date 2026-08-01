@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, ChannelType } = require('discord.js');
 const Allocation = require('../models/Allocation');
 const { buildMainEmbed, buildButtons } = require('../utils/embeds');
 const { scheduleReminders } = require('../utils/reminder');
@@ -66,7 +66,43 @@ module.exports = {
                 ? `DM reminders scheduled **${reminderMinutes} minutes** prior.`
                 : `No \`staff_time_utc\` provided — DM reminders disabled.`;
 
-            await interaction.editReply(`✅ Flight **${flight.number}** posted and registered in database! ${reminderNote}`);
+            // 3. Create dedicated flight channel in Personnel Server
+            let createdChannelNotice = '';
+            const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
+            const flightCategoryId = process.env.FLIGHT_CATEGORY_ID;
+
+            if (personnelGuildId) {
+                try {
+                    const personnelGuild = await interaction.client.guilds.fetch(personnelGuildId);
+                    
+                    // Format channel name (e.g., "w62341")
+                    const channelName = flight.number.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+                    const newChannel = await personnelGuild.channels.create({
+                        name: channelName,
+                        type: ChannelType.GuildText,
+                        parent: flightCategoryId || null,
+                        topic: `Flight Operations channel for ${flight.number} (${flight.from} → ${flight.to})`,
+                    });
+
+                    // Send initial message in the flight channel
+                    await newChannel.send(
+                        `✈️ **Flight Operations Channel Created — ${flight.number}**\n` +
+                        `• **Route:** ${flight.from} → ${flight.to}\n` +
+                        `• **Date:** ${flight.date}\n` +
+                        `• **Staff Duty Time:** ${flight.staffTime}\n` +
+                        `• **Posted By:** <@${interaction.user.id}>\n\n` +
+                        `Operational discussions and briefing details for **${flight.number}** take place here.`
+                    );
+
+                    createdChannelNotice = `\n📁 **Flight Channel Created:** <#${newChannel.id}> in **${personnelGuild.name}**`;
+                } catch (channelErr) {
+                    console.error('Failed to create flight channel in Personnel Server:', channelErr);
+                    createdChannelNotice = `\n⚠️ Could not create flight channel: \`${channelErr.message}\``;
+                }
+            }
+
+            await interaction.editReply(`✅ Flight **${flight.number}** posted and registered in database! ${reminderNote}${createdChannelNotice}`);
 
         } catch (error) {
             console.error('❌ Error executing /postflight:', error);
