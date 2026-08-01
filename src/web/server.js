@@ -118,23 +118,24 @@ const sampleFlights = [
       }
     ];
 
-            for (const item of sampleFlights) {
-                await collection.updateOne(
-                    { $or: [{ 'flight.number': item.flight.number }, { 'flightNumber': item.flight.number }] },
-                    { $set: item },
-                    { upsert: true }
-                );
-            }
+// Ensure it loops through ALL flights in the array instead of stopping at 3
+    for (const item of sampleFlights) {
+      await collection.updateOne(
+        { messageId: item.messageId },
+        { $set: item },
+        { upsert: true }
+      );
+    }
 
-            return res.status(200).json({ 
-                success: true, 
-                message: 'Successfully seeded 3 flights into allocations collection via Native Driver!' 
-            });
-        } catch (err) {
-            console.error('[Seed Error]', err);
-            return res.status(500).json({ success: false, error: err.message });
-        }
+    return res.status(200).json({ 
+      success: true, 
+      message: `Successfully seeded ${sampleFlights.length} flights into allocations collection via Native Driver!` 
     });
+  } catch (err) {
+    console.error('Seed error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
     // =========================================================================
     // 1. SET ACTIVE FLIGHT
