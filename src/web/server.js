@@ -36,84 +36,120 @@ function startWebServer(client) {
 
 const sampleFlights = [
       {
-        messageId: "SEED-W61799",
+        messageId: "SEED_W45011",
         flight: {
-          number: "W61799",
-          departure: "Gatwick",
-          arrival: "Tirana",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED-W45161",
-        flight: {
-          number: "W4 5161",
-          departure: "Tirana Nënë Tereza Airport",
-          arrival: "Paris Beauvais Airport",
-          gameLink: "https://www.roblox.com/games/98808952497848/Tirana-International-Airport-N-n-Tereza"
-        }
-      },
-      {
-        messageId: "SEED-W61301",
-        flight: {
-          number: "W61301",
-          departure: "Warsaw Chopin",
+          number: "W4 5011",
+          departure: "Tirana Nënë Tereza",
           arrival: "Rome Fiumicino",
           gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
         }
       },
       {
-        messageId: "SEED-W62402",
+        messageId: "SEED_W45015",
         flight: {
-          number: "W6 2402",
-          departure: "Budapest Airport",
-          arrival: "London Luton Airport",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Budapest-Airport"
+          number: "W4 5015",
+          departure: "Tirana Nënë Tereza",
+          arrival: "Rome Fiumicino",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
         }
       },
       {
-        messageId: "SEED-W64411",
+        messageId: "SEED_W45151",
         flight: {
-          number: "W6 4411",
-          departure: "Katowice Airport",
-          arrival: "Dubai International",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Katowice-Airport"
+          number: "W4 5151",
+          departure: "Tirana Nënë Tereza",
+          arrival: "Madrid-Barajas Airport",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
         }
       },
       {
-        messageId: "SEED-W67820",
+        messageId: "SEED_W45139",
         flight: {
-          number: "W6 7820",
-          departure: "Vienna International",
-          arrival: "Barcelona El Prat",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Vienna-Airport"
+          number: "W4 5139",
+          departure: "Tirana Nënë Tereza",
+          arrival: "Paris-Beauvais",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
         }
       },
       {
-        messageId: "SEED-W63355",
+        messageId: "SEED_W64392",
         flight: {
-          number: "W6 3355",
-          departure: "Milan Malpensa",
-          arrival: "Reykjavik Keflavik",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Milan-Malpensa"
+          number: "W6 4392",
+          departure: "Tirana Nënë Tereza",
+          arrival: "Sofia International",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
         }
       },
       {
-        messageId: "SEED-W68901",
+        messageId: "SEED_W45171",
         flight: {
-          number: "W6 8901",
-          departure: "Bucharest Otopeni",
-          arrival: "London Gatwick",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Bucharest-Airport"
+          number: "W4 5171",
+          departure: "Tirana Nënë Tereza",
+          arrival: "Warsaw-Chopin",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
         }
       },
       {
-        messageId: "SEED-W65522",
+        messageId: "SEED_W62234",
         flight: {
-          number: "W6 5522",
-          departure: "Sofia Airport",
-          arrival: "Tel Aviv Ben Gurion",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Sofia-Airport"
+          number: "W6 2234",
+          departure: "Tirana Nënë Tereza",
+          arrival: "Budapest",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W61799",
+        flight: {
+          number: "W6 1799",
+          departure: "Gdańsk Lech Wałęsa",
+          arrival: "Tirana Airport Nënë Tereza",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W61699",
+        flight: {
+          number: "W6 1699",
+          departure: "Gdańsk Lech Wałęsa",
+          arrival: "Rome Fiumicino",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W61701",
+        flight: {
+          number: "W6 1701",
+          departure: "Gdańsk Lech Wałęsa",
+          arrival: "Madrid-Barajas",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W61785",
+        flight: {
+          number: "W6 1785",
+          departure: "Gdańsk Lech Wałęsa",
+          arrival: "Oslo Gardermoen",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W61741",
+        flight: {
+          number: "W6 1741",
+          departure: "Gdańsk Lech Wałęsa",
+          arrival: "Copenhagen",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W61689",
+        flight: {
+          number: "W6 1689",
+          departure: "Gdańsk Lech Wałęsa",
+          arrival: "Budapest",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
         }
       }
     ];
