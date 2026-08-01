@@ -295,148 +295,209 @@ module.exports = {
         }
 
         // ==========================================
-        // 4. HANDLE LOA MANAGEMENT ACTION BUTTONS
+        // 4. BUTTON HANDLERS (LOA & FLIGHT DECK LOTTERY)
         // ==========================================
-        if (interaction.isButton() && interaction.customId.startsWith('loa_')) {
-            if (!interaction.member.permissions.has('ManageMessages')) {
-                return await interaction.reply({ content: '🚫 You lack permission to manage LOA records.', flags: [MessageFlags.Ephemeral] });
-            }
-
-            const parts = interaction.customId.split('_');
-            const action = parts[1]; 
-            const recordId = parts[2];
+        if (interaction.isButton()) {
             
-            const loaRecord = await Loa.findById(recordId);
-            if (!loaRecord) return await interaction.reply({ content: '❌ LOA record not found.', flags: [MessageFlags.Ephemeral] });
+            // --- A. FLIGHT DECK LOTTERY POOL BUTTONS ---
+            if (interaction.customId.startsWith('fd_apply_cpt_') || interaction.customId.startsWith('fd_apply_fo_')) {
+                try {
+                    const isCpt = interaction.customId.startsWith('fd_apply_cpt_');
+                    const messageId = interaction.customId.replace('fd_apply_cpt_', '').replace('fd_apply_fo_', '');
+                    const userId = interaction.user.id;
 
-            const targetUser = await interaction.client.users.fetch(loaRecord.userId).catch(() => null);
+                    const allocation = await Allocation.findOne({ messageId });
+                    if (!allocation) {
+                        return await interaction.reply({ content: '❌ Flight allocation data not found.', flags: [MessageFlags.Ephemeral] });
+                    }
 
-            const formatDateStr = (dateObj) => {
-                const d = new Date(dateObj);
-                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-            };
+                    if (!allocation.cptPool) allocation.cptPool = [];
+                    if (!allocation.foPool)  allocation.foPool = [];
 
-            if (action === 'approve') {
-                loaRecord.status = 'APPROVED';
-                
-                const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
-                const loaRoleId = process.env.LOA_ROLE_ID;
-                
-                const personnelGuild = await interaction.client.guilds.fetch(personnelGuildId).catch((err) => {
-                    console.error(`[LOA Critical Fetch Error] Could not find Personnel Server: ${err.message}`);
-                    return null;
-                });
-                
-                const now = new Date();
-                const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const startMidnight = new Date(loaRecord.startDate.getFullYear(), loaRecord.startDate.getMonth(), loaRecord.startDate.getDate());
-                
-                let appliedInstantly = false;
+                    let replyMessage = '';
 
-                if (personnelGuild && startMidnight <= todayMidnight) {
-                    const member = await personnelGuild.members.fetch(loaRecord.userId).catch(() => null);
-                    
-                    if (member && loaRoleId) {
-                        const role = await personnelGuild.roles.fetch(loaRoleId).catch(() => null);
-                        if (role) {
-                            await member.roles.add(role)
-                                .then(() => {
-                                    loaRecord.roleApplied = true;
-                                    appliedInstantly = true;
-                                })
-                                .catch(err => console.error(`[LOA Role Add Error]: ${err.message}`));
+                    if (isCpt) {
+                        if (allocation.cptPool.includes(userId)) {
+                            allocation.cptPool = allocation.cptPool.filter(id => id !== userId);
+                            replyMessage = '🔴 Removed from the **Captain** lottery pool.';
+                        } else {
+                            allocation.cptPool.push(userId);
+                            allocation.foPool = allocation.foPool.filter(id => id !== userId); // Ensure user is in only one pool
+                            replyMessage = '✅ Successfully entered the **Captain** lottery pool!';
+                        }
+                    } else {
+                        if (allocation.foPool.includes(userId)) {
+                            allocation.foPool = allocation.foPool.filter(id => id !== userId);
+                            replyMessage = '🔴 Removed from the **First Officer** lottery pool.';
+                        } else {
+                            allocation.foPool.push(userId);
+                            allocation.cptPool = allocation.cptPool.filter(id => id !== userId); // Ensure user is in only one pool
+                            replyMessage = '✅ Successfully entered the **First Officer** lottery pool!';
                         }
                     }
+
+                    await allocation.save();
+
+                    // Dynamic live update of the lottery embed pool counters
+                    const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                        .setDescription(
+                            `Click below to register for **Captain** or **First Officer** for flight **${allocation.flight.number}**.\n\n` +
+                            `A host will run \`/choosefd\` to randomly select assigned pilots from this pool.\n\n` +
+                            `• **Captain Candidates:** ${allocation.cptPool.length}\n` +
+                            `• **First Officer Candidates:** ${allocation.foPool.length}`
+                        );
+
+                    await interaction.message.edit({ embeds: [updatedEmbed] });
+                    return await interaction.reply({ content: replyMessage, flags: [MessageFlags.Ephemeral] });
+
+                } catch (err) {
+                    console.error('❌ Flight deck lottery button error:', err);
+                    return await interaction.reply({ content: '❌ Failed to process pool entry.', flags: [MessageFlags.Ephemeral] });
+                }
+            }
+
+            // --- B. LOA MANAGEMENT ACTION BUTTONS ---
+            if (interaction.customId.startsWith('loa_')) {
+                if (!interaction.member.permissions.has('ManageMessages')) {
+                    return await interaction.reply({ content: '🚫 You lack permission to manage LOA records.', flags: [MessageFlags.Ephemeral] });
                 }
 
-                await loaRecord.save();
-
-                const updatedEmbed = new EmbedBuilder()
-                    .setColor('#d3007f') 
-                    .setTitle('Leave Approved')
-                    .setDescription(`┃ This leave request has been approved by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nApproved Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
-                    .setFooter({ text: '© Wizz Air' })
-                    .setTimestamp();
-
-                const managementRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`loa_editend_${loaRecord._id}`).setLabel('Edit End Date').setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId(`loa_endearly_${loaRecord._id}`).setLabel('End Early').setStyle(ButtonStyle.Danger)
-                );
-
-                await interaction.message.edit({ embeds: [updatedEmbed], components: [managementRow] });
+                const parts = interaction.customId.split('_');
+                const action = parts[1]; 
+                const recordId = parts[2];
                 
-                if (targetUser) {
-                    const msg = appliedInstantly 
-                        ? `Your Leave of Absence Request has been APPROVED. Your status roles have been updated instantly.`
-                        : `Your Leave of Absence Request has been APPROVED. Your status role configuration will apply automatically on your scheduled start date.`;
-                    await targetUser.send(msg).catch(() => {});
-                }
+                const loaRecord = await Loa.findById(recordId);
+                if (!loaRecord) return await interaction.reply({ content: '❌ LOA record not found.', flags: [MessageFlags.Ephemeral] });
 
-                return await interaction.reply({ 
-                    content: appliedInstantly ? '✅ LOA approved and role added instantly.' : '✅ LOA approved. Role will apply automatically on the start date.', 
-                    flags: [MessageFlags.Ephemeral] 
-                });
-            }
+                const targetUser = await interaction.client.users.fetch(loaRecord.userId).catch(() => null);
 
-            if (action === 'deny') {
-                loaRecord.status = 'DENIED';
-                await loaRecord.save();
+                const formatDateStr = (dateObj) => {
+                    const d = new Date(dateObj);
+                    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                };
 
-                const updatedEmbed = new EmbedBuilder()
-                    .setColor('#e74c3c') 
-                    .setTitle('Leave Denied')
-                    .setDescription(`┃ This leave request has been denied by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nRequested Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
-                    .setFooter({ text: '© Wizz Air' })
-                    .setTimestamp();
+                if (action === 'approve') {
+                    loaRecord.status = 'APPROVED';
+                    
+                    const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
+                    const loaRoleId = process.env.LOA_ROLE_ID;
+                    
+                    const personnelGuild = await interaction.client.guilds.fetch(personnelGuildId).catch((err) => {
+                        console.error(`[LOA Critical Fetch Error] Could not find Personnel Server: ${err.message}`);
+                        return null;
+                    });
+                    
+                    const now = new Date();
+                    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const startMidnight = new Date(loaRecord.startDate.getFullYear(), loaRecord.startDate.getMonth(), loaRecord.startDate.getDate());
+                    
+                    let appliedInstantly = false;
 
-                await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
-                if (targetUser) await targetUser.send(`Your Leave of Absence Request has been DENIED. Please check in with management for clarification.`).catch(() => {});
-                return await interaction.reply({ content: 'LOA set to denied status.', flags: [MessageFlags.Ephemeral] });
-            }
-
-            if (action === 'editend') {
-                const modal = new ModalBuilder()
-                    .setCustomId(`loa_editmodal_${recordId}`)
-                    .setTitle('Modify Leave End Date');
-
-                const newEndDateInput = new TextInputBuilder()
-                    .setCustomId('loa_new_end')
-                    .setLabel('New End Date (DD/MM/YYYY)')
-                    .setPlaceholder('e.g. 05/08/2026')
-                    .setMinLength(10)
-                    .setMaxLength(10)
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true);
-
-                modal.addComponents(new ActionRowBuilder().addComponents(newEndDateInput));
-                return await interaction.showModal(modal);
-            }
-
-            if (action === 'endearly') {
-                loaRecord.status = 'EXPIRED';
-                loaRecord.roleRemoved = true;
-                await loaRecord.save();
-
-                const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
-                const loaRoleId = process.env.LOA_ROLE_ID;
-                const personnelGuild = await interaction.client.guilds.fetch(personnelGuildId).catch(() => null);
-                
-                if (personnelGuild) {
-                    const member = await personnelGuild.members.fetch(loaRecord.userId).catch(() => null);
-                    if (member && loaRoleId) {
-                        await member.roles.remove(loaRoleId).catch(err => console.error(`Failed to remove LOA role early: ${err.message}`));
+                    if (personnelGuild && startMidnight <= todayMidnight) {
+                        const member = await personnelGuild.members.fetch(loaRecord.userId).catch(() => null);
+                        
+                        if (member && loaRoleId) {
+                            const role = await personnelGuild.roles.fetch(loaRoleId).catch(() => null);
+                            if (role) {
+                                await member.roles.add(role)
+                                    .then(() => {
+                                        loaRecord.roleApplied = true;
+                                        appliedInstantly = true;
+                                    })
+                                    .catch(err => console.error(`[LOA Role Add Error]: ${err.message}`));
+                            }
+                        }
                     }
+
+                    await loaRecord.save();
+
+                    const updatedEmbed = new EmbedBuilder()
+                        .setColor('#d3007f') 
+                        .setTitle('Leave Approved')
+                        .setDescription(`┃ This leave request has been approved by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nApproved Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
+                        .setFooter({ text: '© Wizz Air' })
+                        .setTimestamp();
+
+                    const managementRow = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId(`loa_editend_${loaRecord._id}`).setLabel('Edit End Date').setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder().setCustomId(`loa_endearly_${loaRecord._id}`).setLabel('End Early').setStyle(ButtonStyle.Danger)
+                    );
+
+                    await interaction.message.edit({ embeds: [updatedEmbed], components: [managementRow] });
+                    
+                    if (targetUser) {
+                        const msg = appliedInstantly 
+                            ? `Your Leave of Absence Request has been APPROVED. Your status roles have been updated instantly.`
+                            : `Your Leave of Absence Request has been APPROVED. Your status role configuration will apply automatically on your scheduled start date.`;
+                        await targetUser.send(msg).catch(() => {});
+                    }
+
+                    return await interaction.reply({ 
+                        content: appliedInstantly ? '✅ LOA approved and role added instantly.' : '✅ LOA approved. Role will apply automatically on the start date.', 
+                        flags: [MessageFlags.Ephemeral] 
+                    });
                 }
 
-                const finishedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-                    .setColor('#e74c3c')
-                    .setTitle('Leave Ended Early')
-                    .setDescription(interaction.message.embeds[0].description + `\n\n🛑 **Status:** Terminated early by <@${interaction.user.id}>.`);
+                if (action === 'deny') {
+                    loaRecord.status = 'DENIED';
+                    await loaRecord.save();
 
-                await interaction.message.edit({ embeds: [finishedEmbed], components: [] });
-                if (targetUser) await targetUser.send(`🛑 Your Leave of Absence has been terminated early by administration.`).catch(() => {});
-                
-                return await interaction.reply({ content: '✅ Leave of Absence successfully terminated early.', flags: [MessageFlags.Ephemeral] });
+                    const updatedEmbed = new EmbedBuilder()
+                        .setColor('#e74c3c') 
+                        .setTitle('Leave Denied')
+                        .setDescription(`┃ This leave request has been denied by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nRequested Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
+                        .setFooter({ text: '© Wizz Air' })
+                        .setTimestamp();
+
+                    await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
+                    if (targetUser) await targetUser.send(`Your Leave of Absence Request has been DENIED. Please check in with management for clarification.`).catch(() => {});
+                    return await interaction.reply({ content: 'LOA set to denied status.', flags: [MessageFlags.Ephemeral] });
+                }
+
+                if (action === 'editend') {
+                    const modal = new ModalBuilder()
+                        .setCustomId(`loa_editmodal_${recordId}`)
+                        .setTitle('Modify Leave End Date');
+
+                    const newEndDateInput = new TextInputBuilder()
+                        .setCustomId('loa_new_end')
+                        .setLabel('New End Date (DD/MM/YYYY)')
+                        .setPlaceholder('e.g. 05/08/2026')
+                        .setMinLength(10)
+                        .setMaxLength(10)
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(true);
+
+                    modal.addComponents(new ActionRowBuilder().addComponents(newEndDateInput));
+                    return await interaction.showModal(modal);
+                }
+
+                if (action === 'endearly') {
+                    loaRecord.status = 'EXPIRED';
+                    loaRecord.roleRemoved = true;
+                    await loaRecord.save();
+
+                    const personnelGuildId = process.env.PERSONNEL_GUILD_ID;
+                    const loaRoleId = process.env.LOA_ROLE_ID;
+                    const personnelGuild = await interaction.client.guilds.fetch(personnelGuildId).catch(() => null);
+                    
+                    if (personnelGuild) {
+                        const member = await personnelGuild.members.fetch(loaRecord.userId).catch(() => null);
+                        if (member && loaRoleId) {
+                            await member.roles.remove(loaRoleId).catch(err => console.error(`Failed to remove LOA role early: ${err.message}`));
+                        }
+                    }
+
+                    const finishedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                        .setColor('#e74c3c')
+                        .setTitle('Leave Ended Early')
+                        .setDescription(interaction.message.embeds[0].description + `\n\n🛑 **Status:** Terminated early by <@${interaction.user.id}>.`);
+
+                    await interaction.message.edit({ embeds: [finishedEmbed], components: [] });
+                    if (targetUser) await targetUser.send(`🛑 Your Leave of Absence has been terminated early by administration.`).catch(() => {});
+                    
+                    return await interaction.reply({ content: '✅ Leave of Absence successfully terminated early.', flags: [MessageFlags.Ephemeral] });
+                }
             }
         }
 

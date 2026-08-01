@@ -17,8 +17,13 @@ const allocationSchema = new mongoose.Schema({
     operationsClosure: String,
   },
   
-  // 🔒 This line preserves the lock state toggled by /allocation-lock
+  // 🔒 Lock state toggled by /allocation-lock
   isLocked: { type: Boolean, default: false },
+
+  // 🎲 Flight Deck Lottery Pool Fields
+  cptPool:           { type: [String], default: [] },
+  foPool:            { type: [String], default: [] },
+  fdChoiceMessageId: { type: String, default: null },
 
   dispatchSupervisor:  { type: [String], default: [] },
   flightSupervisor:    { type: [String], default: [] },
