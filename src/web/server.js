@@ -34,35 +34,89 @@ function startWebServer(client) {
             const db = mongoose.connection.db;
             const collection = db.collection('allocations');
 
-            const sampleFlights = [
-                {
-                    messageId: "SEED-W61799",
-                    flight: {
-                        number: "W61799",
-                        departure: "Gdansk",
-                        arrival: "Tirana",
-                        gameLink: "https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport"
-                    }
-                },
-                {
-                    messageId: "SEED-W45139",
-                    flight: {
-                        number: "W45139",
-                        departure: "Tirana Nënë Tereza Airport",
-                        arrival: "Paris Beauvais Airport",
-                        gameLink: "https://www.roblox.com/games/90080052497848/Tirana-International-Airport-N-n-Tereza"
-                    }
-                },
-                {
-                    messageId: "SEED-W61301",
-                    flight: {
-                        number: "W61301",
-                        departure: "Warsaw Chopin",
-                        arrival: "Rome Fiumicino",
-                        gameLink: "https://www.roblox.com/games/121134102391740/Warsaw-Chopin-Airport"
-                    }
-                }
-            ];
+const sampleFlights = [
+      {
+        messageId: "SEED_W61799",
+        flight: {
+          number: "W61799",
+          departure: "Gatwick",
+          arrival: "Tirana",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W45161",
+        flight: {
+          number: "W4 5161",
+          departure: "Tirana Nënë Tereza Airport",
+          arrival: "Paris Beauvais Airport",
+          gameLink: "https://www.roblox.com/games/98808952497848/Tirana-International-Airport-N-n-Tereza"
+        }
+      },
+      {
+        messageId: "SEED_W61301",
+        flight: {
+          number: "W61301",
+          departure: "Warsaw Chopin",
+          arrival: "Rome Fiumicino",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W62402",
+        flight: {
+          number: "W6 2402",
+          departure: "Budapest Airport",
+          arrival: "London Luton Airport",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Budapest-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W64411",
+        flight: {
+          number: "W6 4411",
+          departure: "Katowice Airport",
+          arrival: "Dubai International",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Katowice-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W67820",
+        flight: {
+          number: "W6 7820",
+          departure: "Vienna International",
+          arrival: "Barcelona El Prat",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Vienna-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W63355",
+        flight: {
+          number: "W6 3355",
+          departure: "Milan Malpensa",
+          arrival: "Reykjavik Keflavik",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Milan-Malpensa"
+        }
+      },
+      {
+        messageId: "SEED_W68901",
+        flight: {
+          number: "W6 8901",
+          departure: "Bucharest Otopeni",
+          arrival: "London Gatwick",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Bucharest-Airport"
+        }
+      },
+      {
+        messageId: "SEED_W65522",
+        flight: {
+          number: "W6 5522",
+          departure: "Sofia Airport",
+          arrival: "Tel Aviv Ben Gurion",
+          gameLink: "https://www.roblox.com/games/123134102393/48/Sofia-Airport"
+        }
+      }
+    ];
 
             for (const item of sampleFlights) {
                 await collection.updateOne(
