@@ -50,7 +50,7 @@ module.exports = {
       const embed   = buildMainEmbed(flight, {});
       const buttons = buildButtons();
 
-      // 1. Fetch Personnel Server and create dedicated channel
+      // 1. Fetch Personnel Server and create dedicated flight channel
       const personnelGuildId = process.env.PERSONNEL_GUILD_ID || interaction.guildId;
       const flightCategoryId = process.env.FLIGHT_CATEGORY_ID;
 
@@ -64,23 +64,29 @@ module.exports = {
         topic: `Flight Operations channel for ${flight.number} (${flight.from} → ${flight.to})`,
       });
 
-      // 2. Post the main flight sheet directly inside the newly created flight channel
+      // 2. Post the main flight briefing sheet inside the newly created flight channel
       const mainMessage = await flightChannel.send({
         embeds: [embed],
         components: buttons,
       });
 
-      // 3. Post the Flight Deck Selection Embed
+      // 3. Build Detailed Flight Deck Selection Embed (For #fd-pool)
       const fdEmbed = new EmbedBuilder()
         .setColor('#D3007F')
-        .setTitle('<:plane:1414277643314004079> Flight Deck Allocation Pool')
+        .setTitle(`Flight Deck Allocation Pool — ${flight.number}`)
         .setDescription(
-          `Click below to register for **Captain** or **First Officer** for flight **${flight.number}**.\n\n` +
+          `Click below to register for **Captain** or **First Officer** for flight **${flight.number}**.\n` +
           `A host will run \`/choosefd\` to randomly select assigned pilots from this pool.\n\n` +
+          `### Flight Details\n` +
+          `• **Route:** \`${flight.from}\` ➔ \`${flight.to}\`\n` +
+          `• **Duty Report Time:** \`${flight.staffTime}\` | **Date:** \`${flight.date}\`\n` +
+          `• **Gate:** \`${flight.gate}\` | **Aircraft:** \`${flight.aircraft}\`\n\n` +
+          `### Active Pool Candidates\n` +
           `• **Captain Candidates:** 0\n` +
           `• **First Officer Candidates:** 0`
         )
-        .setFooter({ text: 'Wizz Air Flight Operations • Flight Deck Selection' });
+        .setFooter({ text: 'Wizz Air Flight Operations • Flight Deck Selection' })
+        .setTimestamp();
 
       const fdRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -93,9 +99,24 @@ module.exports = {
           .setStyle(ButtonStyle.Secondary)
       );
 
-      const fdMessage = await flightChannel.send({ embeds: [fdEmbed], components: [fdRow] });
+      let fdMessage = null;
+      const fdChannelId = process.env.FLIGHT_DECK_CHANNEL_ID;
 
-      // 4. Save to MongoDB referencing the channel, main message, and FD message
+      if (fdChannelId) {
+        try {
+          // Send to dedicated #fd-pool channel
+          const fdTargetChannel = await interaction.client.channels.fetch(fdChannelId);
+          fdMessage = await fdTargetChannel.send({ embeds: [fdEmbed], components: [fdRow] });
+        } catch (err) {
+          console.warn('Could not post to FLIGHT_DECK_CHANNEL_ID, defaulting to flight channel:', err.message);
+          fdMessage = await flightChannel.send({ embeds: [fdEmbed], components: [fdRow] });
+        }
+      } else {
+        // Fallback: Post in newly created channel if environment variable is not configured
+        fdMessage = await flightChannel.send({ embeds: [fdEmbed], components: [fdRow] });
+      }
+
+      // 4. Save to MongoDB referencing the channel, main message, and FD pool message
       const allocation = await Allocation.create({
         messageId: mainMessage.id,
         channelId: flightChannel.id,
@@ -103,7 +124,7 @@ module.exports = {
         isLocked: false,
         cptPool: [],
         foPool: [],
-        fdChoiceMessageId: fdMessage.id,
+        fdChoiceMessageId: fdMessage?.id || null,
       });
 
       console.log(`[POSTFLIGHT] Stored flight ${flight.number} in DB (Doc ID: ${allocation._id})`);
@@ -112,7 +133,7 @@ module.exports = {
         scheduleReminders(interaction.client, allocation, reminderMinutes);
       }
 
-      await interaction.editReply(`✅ Created channel <#${flightChannel.id}> and posted flight sheet for **${flight.number}**!`);
+      await interaction.editReply(`✅ Created channel <#${flightChannel.id}>, posted flight sheet, and sent FD pool card to <#${fdMessage.channelId}>!`);
 
     } catch (error) {
       console.error('❌ Error executing /postflight:', error);
