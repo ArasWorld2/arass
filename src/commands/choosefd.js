@@ -6,81 +6,132 @@ const { checkRole } = require('../utils/checkRole');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('choosefd')
-    .setDescription('Randomly select Captain and/or First Officer from the entry pool')
-    .addStringOption(o => o.setName('message_id').setDescription('Message ID of the main flight allocation').setRequired(true))
+    .setDescription('Randomly select Captain/FO from the pool, assign them to the flight sheet, and DM them')
     .addStringOption(o => 
-      o.setName('role')
-        .setDescription('Role to select for')
+      o.setName('flight_number')
+        .setDescription('Select or search for the flight number')
+        .setAutocomplete(true)
         .setRequired(true)
-        .addChoices(
-          { name: 'Captain (CPT)', value: 'cpt' },
-          { name: 'First Officer (FO)', value: 'fo' },
-          { name: 'Both Roles', value: 'both' }
-        )
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+  async autocomplete(interaction) {
+    try {
+      const focusedValue = (interaction.options.getFocused() || '').trim().toUpperCase();
+
+      const query = focusedValue 
+        ? { 'flight.number': { $regex: focusedValue, $options: 'i' } } 
+        : {};
+
+      const allocations = await Allocation.find(query).sort({ createdAt: -1 }).limit(10);
+
+      const choices = allocations.map(a => {
+        const flightNum = a.flight?.number || 'UNKNOWN';
+        const from = a.flight?.from || '???';
+        const to = a.flight?.to || '???';
+        const date = a.flight?.date || 'Today';
+
+        return {
+          name: `${flightNum} (${from} -> ${to} | ${date})`,
+          value: a.messageId
+        };
+      });
+
+      await interaction.respond(choices);
+    } catch (err) {
+      console.error('Autocomplete error in choosefd:', err);
+      await interaction.respond([]).catch(() => {});
+    }
+  },
 
   async execute(interaction) {
     if (!await checkRole(interaction)) return;
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-    const messageId = interaction.options.getString('message_id');
-    const roleChoice = interaction.options.getString('role');
+    const messageId = interaction.options.getString('flight_number');
 
     const allocation = await Allocation.findOne({ messageId });
     if (!allocation) {
-      return interaction.editReply('❌ Allocation not found for that Message ID.');
+      return interaction.editReply('❌ Flight allocation not found in database.');
     }
 
+    const flightNum = allocation.flight?.number || 'Flight';
     const cptPool = allocation.cptPool || [];
-    const foPool  = allocation.foPool  || [];
+    const foPool = allocation.foPool || [];
 
-    const results = [];
-
-    // Select Captain
-    if (roleChoice === 'cpt' || roleChoice === 'both') {
-      if (cptPool.length === 0) {
-        results.push('⚠️ No candidates found in the **Captain** pool.');
-      } else {
-        const selectedCpt = cptPool[Math.floor(Math.random() * cptPool.length)];
-        if (!allocation.cpt) allocation.cpt = [];
-        allocation.cpt = [selectedCpt];
-        results.push(`🎉 Selected **Captain**: <@${selectedCpt}>`);
-      }
+    if (cptPool.length === 0 && foPool.length === 0) {
+      return interaction.editReply(`❌ No candidates currently in the pool for **${flightNum}**.`);
     }
 
-    // Select First Officer
-    if (roleChoice === 'fo' || roleChoice === 'both') {
-      if (foPool.length === 0) {
-        results.push('⚠️ No candidates found in the **First Officer** pool.');
-      } else {
-        const selectedFo = foPool[Math.floor(Math.random() * foPool.length)];
-        if (!allocation.fo) allocation.fo = [];
-        allocation.fo = [selectedFo];
-        results.push(`🎉 Selected **First Officer**: <@${selectedFo}>`);
-      }
+    let selectedCpt = null;
+    let selectedFo = null;
+
+    // Pick random Captain if candidate available
+    if (cptPool.length > 0) {
+      const randomIndex = Math.floor(Math.random() * cptPool.length);
+      selectedCpt = cptPool[randomIndex];
+      allocation.captain = [selectedCpt]; // Allocate directly onto sheet
     }
+
+    // Pick random First Officer if candidate available
+    if (foPool.length > 0) {
+      const randomIndex = Math.floor(Math.random() * foPool.length);
+      selectedFo = foPool[randomIndex];
+      allocation.firstOfficer = [selectedFo]; // Allocate directly onto sheet
+    }
+
+    // Reset candidate pools after selection
+    allocation.cptPool = [];
+    allocation.foPool = [];
 
     await allocation.save();
 
-    // Update main flight embed sheet
+    // 1. Update the Main Flight Sheet Embed in Discord with allocated pilots
     try {
       const channel = await interaction.client.channels.fetch(allocation.channelId);
-      const mainMessage = await channel.messages.fetch(messageId);
+      const mainMessage = await channel.messages.fetch(allocation.messageId);
+
       await mainMessage.edit({
         embeds: [buildMainEmbed(allocation.flight, allocation)],
         components: buildButtons()
       });
-
-      // Send announcement in flight channel
-      await channel.send(
-        `🎲 **Flight Deck Lottery Results for ${allocation.flight.number}!**\n` +
-        results.join('\n')
-      );
     } catch (err) {
-      console.error('Failed to update main flight message after choosefd:', err);
+      console.warn('Could not update main flight message sheet:', err.message);
     }
 
-    return interaction.editReply(`✅ Processed Flight Deck lottery!\n\n${results.join('\n')}`);
+    // 2. DM the selected Captain directly
+    if (selectedCpt) {
+      try {
+        const cptUser = await interaction.client.users.fetch(selectedCpt);
+        await cptUser.send(
+          `✈️ **Wizz Air Flight Selection Notice**\n\n` +
+          `Congratulations! You have been randomly selected as **Captain (CPT)** for flight **${flightNum}**.\n` +
+          `Please check the flight channel <#${allocation.channelId}> for full briefing details and duty times.`
+        );
+      } catch (err) {
+        console.warn(`Could not DM Captain user ${selectedCpt}:`, err.message);
+      }
+    }
+
+    // 3. DM the selected First Officer directly
+    if (selectedFo) {
+      try {
+        const foUser = await interaction.client.users.fetch(selectedFo);
+        await foUser.send(
+          `✈️ **Wizz Air Flight Selection Notice**\n\n` +
+          `Congratulations! You have been randomly selected as **First Officer (FO)** for flight **${flightNum}**.\n` +
+          `Please check the flight channel <#${allocation.channelId}> for full briefing details and duty times.`
+        );
+      } catch (err) {
+        console.warn(`Could not DM First Officer user ${selectedFo}:`, err.message);
+      }
+    }
+
+    // 4. Clean ephemeral response back to the host running the command
+    let summary = `✅ Successfully selected pilots for **${flightNum}**, allocated them to the main flight sheet, and notified them via DM!\n\n`;
+    if (selectedCpt) summary += `• **Captain:** <@${selectedCpt}>\n`;
+    if (selectedFo) summary += `• **First Officer:** <@${selectedFo}>\n`;
+
+    return interaction.editReply(summary);
   },
 };
