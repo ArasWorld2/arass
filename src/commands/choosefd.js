@@ -23,7 +23,11 @@ module.exports = {
         ? { 'flight.number': { $regex: focusedValue, $options: 'i' } } 
         : {};
 
-      const allocations = await Allocation.find(query).sort({ createdAt: -1 }).limit(10);
+      const allocations = await Allocation.find(query).sort({ createdAt: -1 }).limit(10).lean();
+
+      if (!allocations || allocations.length === 0) {
+        return await interaction.respond([]).catch(() => {});
+      }
 
       const choices = allocations.map(a => {
         const flightNum = a.flight?.number || 'UNKNOWN';
@@ -37,7 +41,7 @@ module.exports = {
         };
       });
 
-      await interaction.respond(choices);
+      await interaction.respond(choices).catch(() => {});
     } catch (err) {
       console.error('Autocomplete error in choosefd:', err);
       await interaction.respond([]).catch(() => {});
@@ -66,27 +70,27 @@ module.exports = {
     let selectedCpt = null;
     let selectedFo = null;
 
-    // Pick random Captain if candidate available
+    // Pick random Captain if available
     if (cptPool.length > 0) {
       const randomIndex = Math.floor(Math.random() * cptPool.length);
       selectedCpt = cptPool[randomIndex];
-      allocation.captain = [selectedCpt]; // Allocate directly onto sheet
+      allocation.captain = [selectedCpt]; // Direct allocation
     }
 
-    // Pick random First Officer if candidate available
+    // Pick random First Officer if available
     if (foPool.length > 0) {
       const randomIndex = Math.floor(Math.random() * foPool.length);
       selectedFo = foPool[randomIndex];
-      allocation.firstOfficer = [selectedFo]; // Allocate directly onto sheet
+      allocation.firstOfficer = [selectedFo]; // Direct allocation
     }
 
-    // Reset candidate pools after selection
+    // Clear candidate pools
     allocation.cptPool = [];
     allocation.foPool = [];
 
     await allocation.save();
 
-    // 1. Update the Main Flight Sheet Embed in Discord with allocated pilots
+    // 1. Update the Main Flight Sheet Embed in Discord
     try {
       const channel = await interaction.client.channels.fetch(allocation.channelId);
       const mainMessage = await channel.messages.fetch(allocation.messageId);
@@ -99,7 +103,7 @@ module.exports = {
       console.warn('Could not update main flight message sheet:', err.message);
     }
 
-    // 2. DM the selected Captain directly
+    // 2. Direct Message Captain
     if (selectedCpt) {
       try {
         const cptUser = await interaction.client.users.fetch(selectedCpt);
@@ -113,7 +117,7 @@ module.exports = {
       }
     }
 
-    // 3. DM the selected First Officer directly
+    // 3. Direct Message First Officer
     if (selectedFo) {
       try {
         const foUser = await interaction.client.users.fetch(selectedFo);
@@ -127,8 +131,8 @@ module.exports = {
       }
     }
 
-    // 4. Clean ephemeral response back to the host running the command
-    let summary = `✅ Successfully selected pilots for **${flightNum}**, allocated them to the main flight sheet, and notified them via DM!\n\n`;
+    // 4. Ephemeral confirmation to the host
+    let summary = `✅ Successfully selected pilots for **${flightNum}**, allocated them to the flight sheet, and notified them via DM!\n\n`;
     if (selectedCpt) summary += `• **Captain:** <@${selectedCpt}>\n`;
     if (selectedFo) summary += `• **First Officer:** <@${selectedFo}>\n`;
 
