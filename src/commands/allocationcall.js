@@ -1,21 +1,16 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const Allocation = require('../models/Allocation');
 const { checkRole } = require('../utils/checkRole');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('allocationcall')
-    .setDescription('Send an urgent staff allocation call for unfilled roles on a flight and DM unallocated staff')
+    .setDescription('DM unallocated staff an urgent allocation notice for a flight')
     .addStringOption(o => 
       o.setName('flight_number')
         .setDescription('Select or search for the flight allocation')
         .setAutocomplete(true)
         .setRequired(true)
-    )
-    .addChannelOption(o => 
-      o.setName('channel')
-        .setDescription('Channel to send the public allocation notice (Defaults to flight channel)')
-        .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
@@ -57,7 +52,6 @@ module.exports = {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     const messageId = interaction.options.getString('flight_number');
-    const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
 
     // 1. Fetch flight from MongoDB
     const allocation = await Allocation.findOne({ messageId });
@@ -85,7 +79,7 @@ module.exports = {
       { key: 'loungeAttendant', label: 'Ground Operations / Tarmac Agent', group: 'Ground Operations', max: 2 }
     ];
 
-    // 3. Scan for unfilled categories/roles dynamically
+    // 3. Scan for unfilled categories
     let neededCategoriesSet = new Set();
     
     for (const role of roleConfig) {
@@ -102,33 +96,7 @@ module.exports = {
       positionsNeededFormatted = 'All positions are currently filled.';
     }
 
-    // 4. Build Announcement Embed matching your requested structure exactly
-    const embed = new EmbedBuilder()
-      .setColor('#D3007F')
-      .setDescription(
-        `:WZZHeart: **Staff Allocation Notice**\n\n` +
-        `We urgently need staff to sign up for flight **${flightNum}** departing on **${dateStr}**.\n\n` +
-        `Personnel who step up and operate this route will receive an additional **0.5 duty point** included in their payroll.\n\n` +
-        `**Positions Needed:**\n\n` +
-        `${positionsNeededFormatted}\n\n` +
-        `Please submit your sign-up <#${allocation.channelId}> if you can cover this.`
-      );
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setStyle(ButtonStyle.Link)
-        .setLabel('Jump to Flight Sheet')
-        .setURL(`https://discord.com/channels/${interaction.guildId}/${allocation.channelId}/${allocation.messageId}`)
-    );
-
-    // 5. Send public message to target channel
-    try {
-      await targetChannel.send({ embeds: [embed], components: [row] });
-    } catch (err) {
-      return interaction.editReply(`❌ Failed to send announcement to <#${targetChannel.id}>: \`${err.message}\``);
-    }
-
-    // 6. Gather all users currently assigned or queued on this flight
+    // 4. Gather all users currently assigned or queued on this flight
     const allocatedUserIds = new Set();
     const docData = allocation.toObject();
     for (const key in docData) {
@@ -144,7 +112,7 @@ module.exports = {
       }
     }
 
-    // 7. DM anyone NOT allocated
+    // 5. DM anyone NOT allocated (No public message sent anywhere)
     let dmCount = 0;
     try {
       await interaction.guild.members.fetch();
@@ -155,7 +123,7 @@ module.exports = {
         if (!allocatedUserIds.has(memberId)) {
           try {
             await member.user.send({
-              content: `<:WP_share:1513933370046808174> **Staff Allocation Notice**\n\n` +
+              content: `:WZZHeart: **Staff Allocation Notice**\n\n` +
                        `We urgently need staff to sign up for flight **${flightNum}** departing on **${dateStr}**.\n` +
                        `Personnel who step up and operate this route will receive an additional **0.5 duty point** included in their payroll.\n\n` +
                        `**Positions Needed:**\n${positionsNeededFormatted}\n\n` +
@@ -163,7 +131,7 @@ module.exports = {
             });
             dmCount++;
           } catch {
-            // DMs closed
+            // DMs closed or failed
           }
         }
       }
@@ -172,7 +140,7 @@ module.exports = {
     }
 
     return interaction.editReply(
-      `✅ Successfully sent the allocation call for **${flightNum}** to <#${targetChannel.id}> and DMed **${dmCount}** unallocated staff members!`
+      `✅ Successfully sent private DMs to **${dmCount}** unallocated staff members for flight **${flightNum}** (No public messages were posted)!`
     );
   },
 };
