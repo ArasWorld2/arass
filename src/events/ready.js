@@ -7,7 +7,7 @@ module.exports = {
   once: true,
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
-    client.user.setActivity('lostinkrakow ass', { type: 3 }); // 3 = Watching
+    client.user.setActivity('north is a whore', { type: 3 }); // 3 = Watching
 
     // Run loops immediately when bot turns on with a safety wrapper
     try {
