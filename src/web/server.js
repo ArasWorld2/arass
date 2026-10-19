@@ -17,7 +17,7 @@ function startWebServer(client) {
     const PORT = process.env.PORT || 8080;
     const SECRET_KEY = process.env.ROBLOX_SECRET_KEY || 'WizzAirSecretKey2026';
 
-    // Health check endpoint
+    // Health check endpoints
     app.get('/', (req, res) => {
         return res.status(200).send('OK - Roblox Webhook Server Online!');
     });
@@ -43,8 +43,8 @@ function startWebServer(client) {
                     messageId: "SEED_W45011",
                     flight: {
                         number: "W4 5011",
-                        departure: "Tirana Nënë Tereza",
-                        arrival: "Rome Fiumicino",
+                        from: "Tirana Nënë Tereza",
+                        to: "Rome Fiumicino",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -52,8 +52,8 @@ function startWebServer(client) {
                     messageId: "SEED_W45015",
                     flight: {
                         number: "W4 5015",
-                        departure: "Tirana Nënë Tereza",
-                        arrival: "Rome Fiumicino",
+                        from: "Tirana Nënë Tereza",
+                        to: "Rome Fiumicino",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -61,8 +61,8 @@ function startWebServer(client) {
                     messageId: "SEED_W45151",
                     flight: {
                         number: "W4 5151",
-                        departure: "Tirana Nënë Tereza",
-                        arrival: "Madrid-Barajas Airport",
+                        from: "Tirana Nënë Tereza",
+                        to: "Madrid-Barajas Airport",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -70,8 +70,8 @@ function startWebServer(client) {
                     messageId: "SEED_W45139",
                     flight: {
                         number: "W4 5139",
-                        departure: "Tirana Nënë Tereza",
-                        arrival: "Paris-Beauvais",
+                        from: "Tirana Nënë Tereza",
+                        to: "Paris-Beauvais",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -79,8 +79,8 @@ function startWebServer(client) {
                     messageId: "SEED_W64392",
                     flight: {
                         number: "W6 4392",
-                        departure: "Tirana Nënë Tereza",
-                        arrival: "Sofia International",
+                        from: "Tirana Nënë Tereza",
+                        to: "Sofia International",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -88,8 +88,8 @@ function startWebServer(client) {
                     messageId: "SEED_W45171",
                     flight: {
                         number: "W4 5171",
-                        departure: "Tirana Nënë Tereza",
-                        arrival: "Warsaw-Chopin",
+                        from: "Tirana Nënë Tereza",
+                        to: "Warsaw-Chopin",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -97,8 +97,8 @@ function startWebServer(client) {
                     messageId: "SEED_W62234",
                     flight: {
                         number: "W6 2234",
-                        departure: "Tirana Nënë Tereza",
-                        arrival: "Budapest",
+                        from: "Tirana Nënë Tereza",
+                        to: "Budapest",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -106,8 +106,8 @@ function startWebServer(client) {
                     messageId: "SEED_W61799",
                     flight: {
                         number: "W6 1799",
-                        departure: "Gdańsk Lech Wałęsa",
-                        arrival: "Tirana Airport Nënë Tereza",
+                        from: "Gdańsk Lech Wałęsa",
+                        to: "Tirana Airport Nënë Tereza",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -115,8 +115,8 @@ function startWebServer(client) {
                     messageId: "SEED_W61699",
                     flight: {
                         number: "W6 1699",
-                        departure: "Gdańsk Lech Wałęsa",
-                        arrival: "Rome Fiumicino",
+                        from: "Gdańsk Lech Wałęsa",
+                        to: "Rome Fiumicino",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -124,8 +124,8 @@ function startWebServer(client) {
                     messageId: "SEED_W61701",
                     flight: {
                         number: "W6 1701",
-                        departure: "Gdańsk Lech Wałęsa",
-                        arrival: "Madrid-Barajas",
+                        from: "Gdańsk Lech Wałęsa",
+                        to: "Madrid-Barajas",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -133,8 +133,8 @@ function startWebServer(client) {
                     messageId: "SEED_W61785",
                     flight: {
                         number: "W6 1785",
-                        departure: "Gdańsk Lech Wałęsa",
-                        arrival: "Oslo Gardermoen",
+                        from: "Gdańsk Lech Wałęsa",
+                        to: "Oslo Gardermoen",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -142,8 +142,8 @@ function startWebServer(client) {
                     messageId: "SEED_W61741",
                     flight: {
                         number: "W6 1741",
-                        departure: "Gdańsk Lech Wałęsa",
-                        arrival: "Copenhagen",
+                        from: "Gdańsk Lech Wałęsa",
+                        to: "Copenhagen",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 },
@@ -151,8 +151,8 @@ function startWebServer(client) {
                     messageId: "SEED_W61689",
                     flight: {
                         number: "W6 1689",
-                        departure: "Gdańsk Lech Wałęsa",
-                        arrival: "Budapest",
+                        from: "Gdańsk Lech Wałęsa",
+                        to: "Budapest",
                         gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
                     }
                 }
@@ -211,7 +211,7 @@ function startWebServer(client) {
 
             const targetChannelId = process.env.SO_CHANNEL_ID;
             if (!targetChannelId) {
-                return res.status(200).json({ success: false, error: 'SO_CHANNEL_ID is not configured in environment variables.' });
+                return res.status(200).json({ success: false, error: 'SO_CHANNEL_ID is not configured in Northflank environment variables.' });
             }
 
             let channel = client.channels?.cache.get(targetChannelId);
@@ -257,12 +257,12 @@ function startWebServer(client) {
                 console.warn('[MongoDB Warning] Connection state is not connected (readyState != 1)');
             }
 
-            // Extract dynamic fields from the document
+            // Extract dynamic fields across all potential schema key names
             const flight = doc?.flight || doc || {};
             const flightNumStr = flight.number || flight.flightNumber || activeFlightNumber || 'W61799';
-            const departure = flight.departure || flight.from || flight.dep || 'Gdansk';
-            const arrival = flight.arrival || flight.to || flight.arr || 'Tirana';
-            const joinLink = flight.gameLink || flight.link || 'https://www.roblox.com/games/121134102391740/Gda-sk-Lech-Wa-sa-Airport';
+            const departure    = flight.from || flight.departure || flight.dep || 'TBA';
+            const arrival      = flight.to || flight.arrival || flight.arr || 'TBA';
+            const joinLink     = flight.gameLink || flight.link || 'https://www.roblox.com/communities/822510972/w-zzair-rblx#!/about';
 
             const announcementText = 
 `### <:suitcasewalk:1414277649395749046> Server Unlocked
