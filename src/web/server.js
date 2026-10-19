@@ -200,7 +200,7 @@ function startWebServer(client) {
     });
 
     // =========================================================================
-    // 2. DISCORD ANNOUNCEMENT SHOUTOUT
+    // 2. DISCORD ANNOUNCEMENT SHOUTOUT (:so)
     // =========================================================================
     app.post('/api/shoutout', async (req, res) => {
         try {
@@ -230,14 +230,13 @@ function startWebServer(client) {
                 return res.status(200).json({ success: false, error: `Channel ID ${targetChannelId} does not exist.` });
             }
 
-            // DIRECT MONGODB LOOKUP WITH SPACE-INSENSITIVE REGEX
+            // Direct MongoDB Lookup with Flexible Space Matching
             let doc = null;
             if (mongoose.connection.readyState === 1) {
                 try {
                     const db = mongoose.connection.db;
                     const targetCollection = db.collection('allocations');
 
-                    // Standardize search string by matching with optional spaces (e.g. W61799 matches W6 1799)
                     const rawClean = activeFlightNumber.replace(/\s+/g, '');
                     const flexibleRegex = new RegExp(`^${rawClean.split('').join('\\s*')}$`, 'i');
 
@@ -249,7 +248,7 @@ function startWebServer(client) {
                         ]
                     });
 
-                    console.log(`[Mongo Search Debug] Querying for "${activeFlightNumber}" (Regex: ${flexibleRegex}) -> Found Doc:`, doc ? doc.messageId : 'None');
+                    console.log(`[Mongo Search Debug] Querying for "${activeFlightNumber}" -> Found Doc:`, doc ? doc.messageId : 'None');
                 } catch (dbErr) {
                     console.error('[MongoDB Lookup Error]', dbErr);
                 }
@@ -257,7 +256,6 @@ function startWebServer(client) {
                 console.warn('[MongoDB Warning] Connection state is not connected (readyState != 1)');
             }
 
-            // Extract dynamic fields across all potential schema key names
             const flight = doc?.flight || doc || {};
             const flightNumStr = flight.number || flight.flightNumber || activeFlightNumber || 'W61799';
             const departure    = flight.from || flight.departure || flight.dep || 'TBA';
@@ -285,6 +283,88 @@ function startWebServer(client) {
 
         } catch (err) {
             console.error('[Roblox API /shoutout Error]', err);
+            return res.status(200).json({ success: false, error: err.message });
+        }
+    });
+
+    // =========================================================================
+    // 3. LANDED ANNOUNCEMENT (:landed)
+    // =========================================================================
+    app.post('/api/landed', async (req, res) => {
+        try {
+            const { secret } = req.body || {};
+            if (secret !== SECRET_KEY) {
+                return res.status(200).json({ success: false, error: 'Unauthorized secret key' });
+            }
+
+            const targetChannelId = process.env.SO_CHANNEL_ID;
+            if (!targetChannelId) {
+                return res.status(200).json({ success: false, error: 'SO_CHANNEL_ID is not configured in Northflank environment variables.' });
+            }
+
+            let channel = client.channels?.cache.get(targetChannelId);
+            if (!channel) {
+                try {
+                    channel = await client.channels.fetch(targetChannelId);
+                } catch (fetchErr) {
+                    return res.status(200).json({ 
+                        success: false, 
+                        error: `Bot cannot access channel ${targetChannelId}. Check permissions.` 
+                    });
+                }
+            }
+
+            if (!channel) {
+                return res.status(200).json({ success: false, error: `Channel ID ${targetChannelId} does not exist.` });
+            }
+
+            // Direct MongoDB Lookup
+            let doc = null;
+            if (mongoose.connection.readyState === 1) {
+                try {
+                    const db = mongoose.connection.db;
+                    const targetCollection = db.collection('allocations');
+
+                    const rawClean = activeFlightNumber.replace(/\s+/g, '');
+                    const flexibleRegex = new RegExp(`^${rawClean.split('').join('\\s*')}$`, 'i');
+
+                    doc = await targetCollection.findOne({
+                        $or: [
+                            { 'flight.number': flexibleRegex },
+                            { 'flight.flightNumber': flexibleRegex },
+                            { 'flightNumber': flexibleRegex }
+                        ]
+                    });
+                } catch (dbErr) {
+                    console.error('[MongoDB Lookup Error]', dbErr);
+                }
+            }
+
+            const flight = doc?.flight || doc || {};
+            const flightNumStr = flight.number || flight.flightNumber || activeFlightNumber || 'W61799';
+            const departure    = flight.from || flight.departure || flight.dep || 'TBA';
+            const arrival      = flight.to || flight.arrival || flight.arr || 'TBA';
+
+            const announcementText = 
+`### 🛬 Flight Touched Down
+-# <:blank:1296498991114227763> \`Fly Greenest\` <:flygreen:1272674839441965056>
+
+> Flight <:Wnewtail:1272656069910462464> **${flightNumStr}** from **${departure}** has safely landed at **${arrival}**! 
+<:arrow1:1414277637135925318> We hope all passengers enjoyed their flight with Wizz Air. Please remain seated until the aircraft has arrived at the gate and the seatbelt sign is switched off.
+
+-# <:roblox:1414277676855857172> **[Roblox Group](<https://www.roblox.com/communities/822510972/w-zzair-rblx#!/about>)**`;
+
+            await channel.send({ content: announcementText });
+            console.log(`[Roblox API Success] Landed announcement sent for flight ${flightNumStr} into ${arrival}`);
+            
+            return res.status(200).json({ 
+                success: true, 
+                message: 'Landed announcement sent successfully!',
+                flight: { flightNumStr, departure, arrival }
+            });
+
+        } catch (err) {
+            console.error('[Roblox API /landed Error]', err);
             return res.status(200).json({ success: false, error: err.message });
         }
     });
