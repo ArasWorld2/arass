@@ -14,16 +14,20 @@ app.use(express.json());
 let activeFlightNumber = 'W61799';
 
 function startWebServer(client) {
-    const PORT = 8080;
+    const PORT = process.env.PORT || 8080;
     const SECRET_KEY = process.env.ROBLOX_SECRET_KEY || 'WizzAirSecretKey2026';
 
-    // Health check
+    // Health check endpoint
     app.get('/', (req, res) => {
         return res.status(200).send('OK - Roblox Webhook Server Online!');
     });
 
+    app.get('/health', (req, res) => {
+        return res.status(200).send('OK');
+    });
+
     // =========================================================================
-    // SEED ENDPOINT (Direct Mongo Driver to avoid schema limits)
+    // SEED ENDPOINT (Direct Mongo Driver)
     // =========================================================================
     app.get('/api/seed', async (req, res) => {
         try {
@@ -34,144 +38,143 @@ function startWebServer(client) {
             const db = mongoose.connection.db;
             const collection = db.collection('allocations');
 
-const sampleFlights = [
-      {
-        messageId: "SEED_W45011",
-        flight: {
-          number: "W4 5011",
-          departure: "Tirana Nënë Tereza",
-          arrival: "Rome Fiumicino",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W45015",
-        flight: {
-          number: "W4 5015",
-          departure: "Tirana Nënë Tereza",
-          arrival: "Rome Fiumicino",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W45151",
-        flight: {
-          number: "W4 5151",
-          departure: "Tirana Nënë Tereza",
-          arrival: "Madrid-Barajas Airport",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W45139",
-        flight: {
-          number: "W4 5139",
-          departure: "Tirana Nënë Tereza",
-          arrival: "Paris-Beauvais",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W64392",
-        flight: {
-          number: "W6 4392",
-          departure: "Tirana Nënë Tereza",
-          arrival: "Sofia International",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W45171",
-        flight: {
-          number: "W4 5171",
-          departure: "Tirana Nënë Tereza",
-          arrival: "Warsaw-Chopin",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W62234",
-        flight: {
-          number: "W6 2234",
-          departure: "Tirana Nënë Tereza",
-          arrival: "Budapest",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W61799",
-        flight: {
-          number: "W6 1799",
-          departure: "Gdańsk Lech Wałęsa",
-          arrival: "Tirana Airport Nënë Tereza",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W61699",
-        flight: {
-          number: "W6 1699",
-          departure: "Gdańsk Lech Wałęsa",
-          arrival: "Rome Fiumicino",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W61701",
-        flight: {
-          number: "W6 1701",
-          departure: "Gdańsk Lech Wałęsa",
-          arrival: "Madrid-Barajas",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W61785",
-        flight: {
-          number: "W6 1785",
-          departure: "Gdańsk Lech Wałęsa",
-          arrival: "Oslo Gardermoen",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W61741",
-        flight: {
-          number: "W6 1741",
-          departure: "Gdańsk Lech Wałęsa",
-          arrival: "Copenhagen",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      },
-      {
-        messageId: "SEED_W61689",
-        flight: {
-          number: "W6 1689",
-          departure: "Gdańsk Lech Wałęsa",
-          arrival: "Budapest",
-          gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
-        }
-      }
-    ];
+            const sampleFlights = [
+                {
+                    messageId: "SEED_W45011",
+                    flight: {
+                        number: "W4 5011",
+                        departure: "Tirana Nënë Tereza",
+                        arrival: "Rome Fiumicino",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W45015",
+                    flight: {
+                        number: "W4 5015",
+                        departure: "Tirana Nënë Tereza",
+                        arrival: "Rome Fiumicino",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W45151",
+                    flight: {
+                        number: "W4 5151",
+                        departure: "Tirana Nënë Tereza",
+                        arrival: "Madrid-Barajas Airport",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W45139",
+                    flight: {
+                        number: "W4 5139",
+                        departure: "Tirana Nënë Tereza",
+                        arrival: "Paris-Beauvais",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W64392",
+                    flight: {
+                        number: "W6 4392",
+                        departure: "Tirana Nënë Tereza",
+                        arrival: "Sofia International",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W45171",
+                    flight: {
+                        number: "W4 5171",
+                        departure: "Tirana Nënë Tereza",
+                        arrival: "Warsaw-Chopin",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W62234",
+                    flight: {
+                        number: "W6 2234",
+                        departure: "Tirana Nënë Tereza",
+                        arrival: "Budapest",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W61799",
+                    flight: {
+                        number: "W6 1799",
+                        departure: "Gdańsk Lech Wałęsa",
+                        arrival: "Tirana Airport Nënë Tereza",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W61699",
+                    flight: {
+                        number: "W6 1699",
+                        departure: "Gdańsk Lech Wałęsa",
+                        arrival: "Rome Fiumicino",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W61701",
+                    flight: {
+                        number: "W6 1701",
+                        departure: "Gdańsk Lech Wałęsa",
+                        arrival: "Madrid-Barajas",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W61785",
+                    flight: {
+                        number: "W6 1785",
+                        departure: "Gdańsk Lech Wałęsa",
+                        arrival: "Oslo Gardermoen",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W61741",
+                    flight: {
+                        number: "W6 1741",
+                        departure: "Gdańsk Lech Wałęsa",
+                        arrival: "Copenhagen",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                },
+                {
+                    messageId: "SEED_W61689",
+                    flight: {
+                        number: "W6 1689",
+                        departure: "Gdańsk Lech Wałęsa",
+                        arrival: "Budapest",
+                        gameLink: "https://www.roblox.com/games/123134102393/48/Warsaw-Chopin-Airport"
+                    }
+                }
+            ];
 
-// Ensure it loops through ALL flights in the array instead of stopping at 3
-    for (const item of sampleFlights) {
-      await collection.updateOne(
-        { messageId: item.messageId },
-        { $set: item },
-        { upsert: true }
-      );
-    }
+            for (const item of sampleFlights) {
+                await collection.updateOne(
+                    { messageId: item.messageId },
+                    { $set: item },
+                    { upsert: true }
+                );
+            }
 
-    return res.status(200).json({ 
-      success: true, 
-      message: `Successfully seeded ${sampleFlights.length} flights into allocations collection via Native Driver!` 
+            return res.status(200).json({ 
+                success: true, 
+                message: `Successfully seeded ${sampleFlights.length} flights into allocations collection via Native Driver!` 
+            });
+        } catch (err) {
+            console.error('Seed error:', err);
+            return res.status(500).json({ success: false, error: err.message });
+        }
     });
-  } catch (err) {
-    console.error('Seed error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
 
     // =========================================================================
     // 1. SET ACTIVE FLIGHT
@@ -208,7 +211,7 @@ const sampleFlights = [
 
             const targetChannelId = process.env.SO_CHANNEL_ID;
             if (!targetChannelId) {
-                return res.status(200).json({ success: false, error: 'SO_CHANNEL_ID is not configured on Railway.' });
+                return res.status(200).json({ success: false, error: 'SO_CHANNEL_ID is not configured in environment variables.' });
             }
 
             let channel = client.channels?.cache.get(targetChannelId);
@@ -227,26 +230,26 @@ const sampleFlights = [
                 return res.status(200).json({ success: false, error: `Channel ID ${targetChannelId} does not exist.` });
             }
 
-            // DIRECT MONGODB LOOKUP
+            // DIRECT MONGODB LOOKUP WITH SPACE-INSENSITIVE REGEX
             let doc = null;
             if (mongoose.connection.readyState === 1) {
                 try {
                     const db = mongoose.connection.db;
-                    const collections = await db.listCollections().toArray();
-                    console.log('[Mongo DB Debug] Active collections in database:', collections.map(c => c.name));
-
                     const targetCollection = db.collection('allocations');
-                    const searchRegex = new RegExp(`^${activeFlightNumber}$`, 'i');
+
+                    // Standardize search string by matching with optional spaces (e.g. W61799 matches W6 1799)
+                    const rawClean = activeFlightNumber.replace(/\s+/g, '');
+                    const flexibleRegex = new RegExp(`^${rawClean.split('').join('\\s*')}$`, 'i');
 
                     doc = await targetCollection.findOne({
                         $or: [
-                            { 'flight.number': searchRegex },
-                            { 'flight.flightNumber': searchRegex },
-                            { 'flightNumber': searchRegex }
+                            { 'flight.number': flexibleRegex },
+                            { 'flight.flightNumber': flexibleRegex },
+                            { 'flightNumber': flexibleRegex }
                         ]
                     });
 
-                    console.log(`[Mongo Search Debug] Querying for "${activeFlightNumber}" -> Found Doc:`, doc);
+                    console.log(`[Mongo Search Debug] Querying for "${activeFlightNumber}" (Regex: ${flexibleRegex}) -> Found Doc:`, doc ? doc.messageId : 'None');
                 } catch (dbErr) {
                     console.error('[MongoDB Lookup Error]', dbErr);
                 }
