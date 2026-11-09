@@ -1,5 +1,14 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
+// Custom LOT Emojis
+const EMOJIS = {
+    TAIL: '<:LOTTail:1520114549490057226>',
+    ARROW: '<:LOTSArrow:1520114515318935584>',
+    CLICK: '<:leftclick:1520114571124150373>',
+    ROBLOX: '<:Roblox_White:1520114564010868998>',
+    HEART: '<:LOTSHeart:1520114525586849985>'
+};
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('userinfo')
@@ -79,51 +88,52 @@ module.exports = {
                 ? `<t:${Math.floor(member.premiumSince.getTime() / 1000)}:R>` 
                 : 'No';
 
-            // Clean Wizz Air embed layout
+            // Clean LOT Polish Airlines embed layout
             const infoEmbed = new EmbedBuilder()
-                .setColor('#d3007f')
+                .setColor('#0C2340') // LOT Polish Airlines Navy Blue
                 .setAuthor({ 
-                    name: `👤 ${user.username}`, 
+                    name: `LOT Polish Airlines • Personnel Record: ${user.username}`, 
                     iconURL: user.displayAvatarURL({ dynamic: true }) 
                 })
                 .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
                 .setDescription(
-                    `➔ This section provides a comprehensive overview of **${user.username}**'s Discord profile, including account details, server presence, roles, permissions, and status.`
+                    `${EMOJIS.TAIL} **LOT Personnel Intelligence Report**\n` +
+                    `${EMOJIS.ARROW} This report provides a comprehensive overview of <@${user.id}>'s Discord profile, including account details, server presence, roles, and current status.`
                 )
                 .addFields(
                     {
-                        name: 'General Information',
-                        value: `• **Display Name:** ${member.displayName}\n• **Username:** ${user.username}\n• **ID:** \`${user.id}\`\n• **Bot:** ${user.bot ? 'Yes' : 'No'}\n• **Acknowledgement:** ${member.id === interaction.guild.ownerId ? 'Server Owner' : 'Member'}`,
+                        name: `${EMOJIS.DOT || '•'} General Information`,
+                        value: `• **Display Name:** ${member.displayName}\n• **Username:** ${user.username}\n• **ID:** \`${user.id}\`\n• **Bot:** ${user.bot ? 'Yes' : 'No'}\n• **Acknowledgement:** ${member.id === interaction.guild.ownerId ? 'Server Owner' : 'Staff / Member'}`,
                         inline: false
                     },
                     {
-                        name: 'Account Dates',
+                        name: `${EMOJIS.DOT || '•'} Account Dates`,
                         value: `• **Created:** <t:${createdTimestamp}:D> (<t:${createdTimestamp}:R>)\n• **Joined:** <t:${joinedTimestamp}:D> (<t:${joinedTimestamp}:R>)`,
                         inline: false
                     },
                     {
-                        name: 'Presence',
+                        name: `${EMOJIS.DOT || '•'} Presence`,
                         value: `• **Status:** ${globalStatus}\n• **Mobile:** ${mobileStatus}\n• **Desktop:** ${desktopStatus}\n• **Web:** ${webStatus}\n• **Activity:** ${activityText}`,
                         inline: false
                     },
                     {
-                        name: 'Server Details',
+                        name: `${EMOJIS.DOT || '•'} Server Details`,
                         value: `• **Nickname:** ${member.nickname || 'None'}\n• **Top Role:** ${topRole}\n• **Boosting:** ${boostingSince}\n• **Timed Out:** ${member.communicationDisabledUntil ? 'Yes' : 'No'}`,
                         inline: false
                     },
                     {
-                        name: 'Badges',
+                        name: `${EMOJIS.DOT || '•'} Badges`,
                         value: `• ${displayBadges}`,
                         inline: false
                     },
                     {
-                        name: `Roles [${roles.length}]`,
+                        name: `${EMOJIS.DOT || '•'} Roles [${roles.length}]`,
                         value: displayRoles,
                         inline: false
                     }
                 )
                 .setFooter({ 
-                    text: `Wizz Air Core • User Lookup • Requested by ${interaction.user.username}`,
+                    text: `LOT Polish Airlines • Human Resources • Requested by ${interaction.user.username}`,
                     iconURL: interaction.guild.iconURL({ dynamic: true }) || undefined
                 })
                 .setTimestamp();
