@@ -22,26 +22,37 @@ function getRoleConfig(key) {
   return ROLES.find(r => r.key === key) || { key, label: key, max: 1 };
 }
 
-function buildMainEmbed(flight, allocations = {}) {
-  const dc = allocations.dc || [];
-  const mb = allocations.mb || [];
-  const cpt = allocations.cpt || [];
-  const fo = allocations.fo || [];
-  const stbyFd = allocations.stbyFd || [];
-  const purser = allocations.purser || [];
-  const cc = allocations.cc || [];
-  const stbyCc = allocations.stbyCc || [];
-  const ts = allocations.ts || [];
-  const gc = allocations.gc || [];
-  const stbyGc = allocations.stbyGc || [];
-  const bcbd = allocations.bcbd || [];
-  const ecbd = allocations.ecbd || [];
-  const cs = allocations.cs || [];
-  const gate = allocations.gate || [];
+// Helper function to safely extract array of IDs regardless of property naming convention
+function getAssignedUsers(allocations, ...keys) {
+  for (const key of keys) {
+    const val = allocations[key];
+    if (Array.isArray(val) && val.length > 0) return val;
+    if (typeof val === 'string' && val.trim().length > 0) return [val];
+  }
+  return [];
+}
+
+function buildMainEmbed(flight = {}, allocations = {}) {
+  // Extract assigned users using both short keys and full MongoDB schema field names
+  const dc     = getAssignedUsers(allocations, 'dispatchCoordinator', 'dc', 'departureCoordinator');
+  const mb     = getAssignedUsers(allocations, 'dispatchSupervisor', 'flightSupervisor', 'mb', 'managementBoard');
+  const cpt    = getAssignedUsers(allocations, 'captain', 'cpt');
+  const fo     = getAssignedUsers(allocations, 'firstOfficer', 'fo');
+  const stbyFd = getAssignedUsers(allocations, 'standbyFlightDeck', 'stbyFd');
+  const purser = getAssignedUsers(allocations, 'purser');
+  const cc     = getAssignedUsers(allocations, 'cabinCrew', 'cc');
+  const stbyCc = getAssignedUsers(allocations, 'standbyCabinCrew', 'stbyCc');
+  const ts     = getAssignedUsers(allocations, 'tarmacSupervisor', 'ts');
+  const gc     = getAssignedUsers(allocations, 'groundHandling', 'groundCrew', 'gc');
+  const stbyGc = getAssignedUsers(allocations, 'standbyGroundCrew', 'stbyGc');
+  const bcbd   = getAssignedUsers(allocations, 'bagDropAgent', 'bcbd', 'businessClassBagDrop');
+  const ecbd   = getAssignedUsers(allocations, 'economyBagDrop', 'ecbd', 'economyClassBagDrop');
+  const cs     = getAssignedUsers(allocations, 'customerService', 'cs');
+  const gate   = getAssignedUsers(allocations, 'gateAgent', 'gate');
 
   const description = 
     `:LOTTail: **Allocation List**\n` +
-    `:Arrow6: This allocation list is for __${flight.number}__ to ${flight.to} on the **${flight.date}**.\n` +
+    `:Arrow6: This allocation list is for __${flight.number || 'Flight'}__ to ${flight.to || 'Dest'} on the **${flight.date || 'Today'}**.\n` +
     `:Arrow6: In order to allocate for this flight, please use the allocation channel corresponding to this flight.\n\n` +
     `:Dot: **Flight Management**\n` +
     `:Arrow6:__Departure Coordinator (${dc.length}/1)__: ${dc.map(u => `<@${u}>`).join(', ')}\n` +
@@ -59,7 +70,7 @@ function buildMainEmbed(flight, allocations = {}) {
     `:Arrow6:__Ground Crew (${gc.length}/3)__: ${gc.map(u => `<@${u}>`).join(', ')}\n` +
     `:Arrow6:__Stand-by Ground Crew__: ${stbyGc.map(u => `<@${u}>`).join(', ')}\n\n` +
     `:Dot: **Airport Worker**\n` +
-    `:Arrow6: __Business Class Bag Drop (${bcbd.length}/1)__: ${bcbd.map(u => `<@${u}>`).join(', ')}\n` +
+    `:Arrow6:__Business Class Bag Drop (${bcbd.length}/1)__: ${bcbd.map(u => `<@${u}>`).join(', ')}\n` +
     `:Arrow6:__Economy Class Bag Drop (${ecbd.length}/3)__: ${ecbd.map(u => `<@${u}>`).join(', ')}\n` +
     `:Arrow6:__Customer Service (${cs.length}/2)__: ${cs.map(u => `<@${u}>`).join(', ')}\n` +
     `:Arrow6:__Gate Agent (${gate.length}/1)*__: ${gate.map(u => `<@${u}>`).join(', ')}`;
