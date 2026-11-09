@@ -1,14 +1,23 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 const Allocation = require('../models/Allocation');
 const { checkRole } = require('../utils/checkRole');
+const embeds = require('../utils/embeds');
+
+// Custom LOT Emojis
+const EMOJIS = {
+    TAIL: '<:LOTTail:1520114549490057226>',
+    ARROW: '<:LOTSArrow:1520114515318935584>',
+    HEART: '<:LOTSHeart:1520114525586849985>'
+};
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('allocation-lock')
         .setDescription('Admin: Lock or unlock allocation changes for a specific flight sheet')
         .addStringOption(option => 
-            option.setName('message_id')
-                .setDescription('The Message ID of the flight sheet embed to lock/unlock')
+            option.setName('flight_number')
+                .setDescription('Select or search for an active flight from MongoDB')
+                .setAutocomplete(true)
                 .setRequired(true)
         )
         .addBooleanOption(option =>
@@ -18,13 +27,35 @@ module.exports = {
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
+    async autocomplete(interaction) {
+        try {
+            const focusedValue = (interaction.options.getFocused() || '').trim().toUpperCase();
+            const query = focusedValue 
+                ? { 'flight.number': { $regex: focusedValue, $options: 'i' } } 
+                : {};
+
+            const allocations = await Allocation.find(query).sort({ createdAt: -1 }).limit(10).lean();
+            if (!allocations || allocations.length === 0) return await interaction.respond([]).catch(() => {});
+
+            const choices = allocations.map(a => ({
+                name: `${a.flight?.number || 'UNKNOWN'} (${a.flight?.from || '???'} ➔ ${a.flight?.to || '???'} | ${a.flight?.date || 'Today'})`,
+                value: a.messageId
+            }));
+
+            await interaction.respond(choices).catch(() => {});
+        } catch (err) {
+            console.error('Autocomplete error in allocation-lock:', err);
+            await interaction.respond([]).catch(() => {});
+        }
+    },
+
     async execute(interaction) {
         if (!await checkRole(interaction)) return;
         
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         try {
-            const messageId = interaction.options.getString('message_id');
+            const messageId = interaction.options.getString('flight_number');
             const isLocked = interaction.options.getBoolean('locked');
 
             // Find the specific flight document in MongoDB using its message ID
@@ -38,25 +69,45 @@ module.exports = {
             allocation.isLocked = isLocked;
             await allocation.save();
 
+            const flightNum = allocation.flight?.number || 'Flight';
+
+            // Refresh main Discord sheet embed in the channel
+            try {
+                const channel = await interaction.client.channels.fetch(allocation.channelId);
+                const message = await channel.messages.fetch(messageId);
+                
+                if (embeds && typeof embeds.buildMainEmbed === 'function' && typeof embeds.buildButtons === 'function') {
+                    await message.edit({
+                        embeds: [embeds.buildMainEmbed(allocation.flight, allocation)],
+                        components: embeds.buildButtons()
+                    });
+                }
+            } catch (err) {
+                console.warn('Could not edit flight sheet embed:', err.message);
+            }
+
             const statusEmbed = new EmbedBuilder()
-                .setColor('#d3007f')
-                .setTitle(isLocked ? '🔒 Flight Sheet Locked' : '🔓 Flight Sheet Unlocked')
-                .setDescription(`The flight sheet for **Flight ${allocation.flight?.number || 'Unknown'}** has been successfully ${isLocked ? '**locked**' : '**unlocked**'}.`)
+                .setColor('#0C2340') // LOT Navy Blue
+                .setTitle(`${EMOJIS.TAIL} **LOT Polish Airlines • Timetable Security**`)
+                .setDescription(
+                    `${EMOJIS.ARROW} **Flight:** \`${flightNum}\`\n` +
+                    `${EMOJIS.ARROW} **Status:** ${isLocked ? '🔒 **Locked** (Allocations Restricted)' : '🔓 **Unlocked** (Allocations Open)'}\n\n` +
+                    `${EMOJIS.HEART} *The allocation list has been successfully ${isLocked ? 'locked' : 'unlocked'}.*`
+                )
                 .addFields(
-                    { name: 'Flight Number', value: `\`${allocation.flight?.number || 'N/A'}\``, inline: true },
-                    { name: 'Message ID', value: `\`${messageId}\``, inline: true },
+                    { name: 'Flight Number', value: `\`${flightNum}\``, inline: true },
                     { name: 'Status', value: isLocked ? '🚫 Allocations Closed' : '✅ Allocations Open', inline: true }
                 )
-                .setTimestamp()
-                .setFooter({ text: 'Wizz Air Operations • Timetable Security' });
+                .setFooter({ text: 'LOT Polish Airlines • Flight Operations' })
+                .setTimestamp();
 
             await interaction.editReply({ embeds: [statusEmbed] });
 
-            // 🌟 Send log to staff log channel
+            // Send log to staff log channel
             await sendLog(interaction, {
                 action: isLocked ? '🔒 Timetable Locked' : '🔓 Timetable Unlocked',
                 admin: interaction.user,
-                flightNumber: allocation.flight?.number || 'Unknown',
+                flightNumber: flightNum,
                 messageId
             });
 
