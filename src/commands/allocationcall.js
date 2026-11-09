@@ -128,13 +128,13 @@ module.exports = {
       }
     }
 
-    // 5. Build LOT-themed Call-Out DM Embed
+    // 5. Build LOT-themed Call-Out DM Embed with updated 1 duty credit format
     const callEmbed = new EmbedBuilder()
       .setColor('#0C2340') // LOT Polish Airlines Navy Blue
       .setTitle(`${EMOJIS.TAIL} **LOT Polish Airlines • Urgent Staff Allocation Notice**`)
       .setDescription(
         `${EMOJIS.ARROW} We urgently require staff to allocate for **${flightNum}** scheduled for **${dateStr}**.\n` +
-        `> Personnel stepping up to cover this route will receive an additional **0.5 duty credit** on their operational record.\n\n` +
+        `> Personnel stepping up to cover this route will receive an additional **1 duty credit** on their operational record.\n\n` +
         `${EMOJIS.HEART} **Departments Requiring Support:**\n${positionsNeededFormatted}\n\n` +
         `${EMOJIS.CLICK} Please head to <#${allocation.channelId}> to select your duty role.`
       )
