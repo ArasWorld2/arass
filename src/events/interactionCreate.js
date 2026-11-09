@@ -3,6 +3,29 @@ const Allocation = require('../models/Allocation');
 const Loa = require('../models/Loa');
 const embeds = require('../utils/embeds'); 
 
+// Department Groups for Cross-Allocation Rules
+const MAIN_DEPARTMENT_KEYS = [
+    'dispatchCoordinator', 'dc', 'departureCoordinator',
+    'dispatchSupervisor', 'flightSupervisor', 'mb', 'managementBoard',
+    'captain', 'cpt',
+    'firstOfficer', 'fo',
+    'standbyFlightDeck', 'stbyFd',
+    'purser',
+    'cabinCrew', 'cc',
+    'standbyCabinCrew', 'stbyCc',
+    'tarmacSupervisor', 'ts',
+    'groundHandling', 'groundCrew', 'gc',
+    'standbyGroundCrew', 'stbyGc'
+];
+
+const AIRPORT_WORKER_KEYS = [
+    'bagDropAgent', 'bcbd', 'businessClassBagDrop',
+    'ecbd', 'economyClassBagDrop',
+    'customerService', 'cs',
+    'gateAgent', 'gate',
+    'loungeAttendant', 'lounge'
+];
+
 // Dictionary mapping short menu keys to MongoDB schema property names
 const KEY_ALIASES = {
     dc: ['dispatchCoordinator', 'dc', 'departureCoordinator', 'departure_coordinator', 'DC'],
@@ -89,7 +112,6 @@ module.exports = {
 
                     if (!allocation.queues) allocation.queues = {};
 
-                    // Helper function to promote queued user when a key frees up
                     const checkAndPromote = async (matchedKey, schemaKey) => {
                         const possibleAliasKeys = [schemaKey, matchedKey, ...(KEY_ALIASES[schemaKey] || [])];
                         let queueKey = possibleAliasKeys.find(k => 
@@ -120,7 +142,7 @@ module.exports = {
                         }
                     };
 
-                    // 1. Wipe user across ALL mapped schema keys and check for queued candidate promotions
+                    // 1. Wipe user across ALL mapped schema keys
                     for (const key of ALL_SCHEMA_KEYS) {
                         if (allocation[key] !== undefined && allocation[key] !== null) {
                             if (Array.isArray(allocation[key])) {
@@ -131,7 +153,6 @@ module.exports = {
                                     const label = getRoleLabel(key);
                                     if (!removedRoles.includes(label)) removedRoles.push(label);
 
-                                    // Promote queued user into freed slot
                                     await checkAndPromote(key, key);
                                 }
                             } else if (allocation[key].toString() === userId) {
@@ -141,7 +162,6 @@ module.exports = {
                                 const label = getRoleLabel(key);
                                 if (!removedRoles.includes(label)) removedRoles.push(label);
 
-                                // Promote queued user into freed slot
                                 await checkAndPromote(key, key);
                             }
                         }
@@ -167,15 +187,12 @@ module.exports = {
 
                     const rolesFormatted = removedRoles.length > 0 ? removedRoles.join(', ') : 'your roles';
 
-                    // DM user leaving shift
                     await sendDM(interaction.user, `You have unallocated as **${rolesFormatted}** for **${flightNum}**.`);
 
-                    // DM users promoted from queue
                     for (const p of promotedUsers) {
                         await sendDM(p.user, `🎉 You have been automatically promoted from the waiting queue as **${p.roleLabel}** for **${flightNum}**!`);
                     }
 
-                    // Refresh flight embed in Discord
                     if (embeds && typeof embeds.buildMainEmbed === 'function' && typeof embeds.buildButtons === 'function') {
                         await interaction.message.edit({
                             embeds: [embeds.buildMainEmbed(allocation.flight, allocation)],
@@ -183,7 +200,6 @@ module.exports = {
                         }).catch(err => console.error("Failed to edit flight embed:", err));
                     }
 
-                    // Audit log
                     await sendLog(interaction, {
                         action: '🔴 Left All Shifts',
                         user: interaction.user,
@@ -255,6 +271,47 @@ module.exports = {
                         });
                     }
                 }
+
+                // ==========================================
+                // DUAL ALLOCATION VALIDATION CHECK
+                // ==========================================
+                if (!isAllocated && !isInQueue) {
+                    const isTargetAirportWorker = AIRPORT_WORKER_KEYS.includes(roleKey) || AIRPORT_WORKER_KEYS.includes(matchedKey);
+                    const isTargetMainDept = MAIN_DEPARTMENT_KEYS.includes(roleKey) || MAIN_DEPARTMENT_KEYS.includes(matchedKey);
+
+                    // Check if user already holds a Main Department role
+                    let currentMainRole = null;
+                    for (const k of MAIN_DEPARTMENT_KEYS) {
+                        if (allocation[k] && Array.isArray(allocation[k]) && allocation[k].map(id => id.toString()).includes(userId)) {
+                            currentMainRole = k;
+                            break;
+                        }
+                    }
+
+                    // Check if user already holds an Airport Worker role
+                    let currentAirportRole = null;
+                    for (const k of AIRPORT_WORKER_KEYS) {
+                        if (allocation[k] && Array.isArray(allocation[k]) && allocation[k].map(id => id.toString()).includes(userId)) {
+                            currentAirportRole = k;
+                            break;
+                        }
+                    }
+
+                    if (isTargetMainDept && currentMainRole) {
+                        return await interaction.reply({
+                            content: `❌ **Allocation Blocked:** You are already allocated to a operational department position. You can only hold **one** main department role plus **one** Airport Worker role.`,
+                            flags: [MessageFlags.Ephemeral]
+                        });
+                    }
+
+                    if (isTargetAirportWorker && currentAirportRole) {
+                        return await interaction.reply({
+                            content: `❌ **Allocation Blocked:** You are already allocated to an Airport Worker role. You can only hold **one** Airport Worker role.`,
+                            flags: [MessageFlags.Ephemeral]
+                        });
+                    }
+                }
+                // ==========================================
 
                 await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
