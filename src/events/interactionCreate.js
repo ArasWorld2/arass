@@ -23,7 +23,7 @@ const KEY_ALIASES = {
     lounge: ['loungeAttendant', 'lounge']
 };
 
-// Flattened list of every conceivable MongoDB field name across all roles
+// Flattened array of all possible MongoDB field names
 const ALL_SCHEMA_KEYS = Array.from(new Set(Object.values(KEY_ALIASES).flat()));
 
 module.exports = {
@@ -73,18 +73,36 @@ module.exports = {
                         });
                     }
 
+                    // --- DEBUG LOGGING ---
+                    const rawDoc = allocation.toObject ? allocation.toObject() : allocation;
+                    console.log('=== [LEAVE SHIFT DEBUG LOG] ===');
+                    console.log('Target User ID:', userId);
+                    console.log('Message ID:', messageId);
+                    console.log('Document Keys Present:', Object.keys(rawDoc));
+                    for (const k of Object.keys(rawDoc)) {
+                        const val = rawDoc[k];
+                        if (Array.isArray(val) && val.length > 0) {
+                            console.log(`Array Field [${k}]:`, val);
+                        } else if (typeof val === 'string' && val === userId) {
+                            console.log(`String Match Field [${k}]:`, val);
+                        }
+                    }
+                    console.log('=================================');
+
                     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
                     let removedFromAny = false;
 
-                    // 1. Wipe user across ALL schema property fields in the MongoDB document
+                    // 1. Wipe user across ALL schema property fields (arrays and strings)
                     ALL_SCHEMA_KEYS.forEach(key => {
-                        if (allocation[key]) {
-                            if (Array.isArray(allocation[key]) && allocation[key].includes(userId)) {
-                                allocation[key] = allocation[key].filter(id => id !== userId);
-                                allocation.markModified(key);
-                                removedFromAny = true;
-                            } else if (allocation[key] === userId) {
+                        if (allocation[key] !== undefined && allocation[key] !== null) {
+                            if (Array.isArray(allocation[key])) {
+                                if (allocation[key].map(id => id.toString()).includes(userId)) {
+                                    allocation[key] = allocation[key].filter(id => id.toString() !== userId);
+                                    allocation.markModified(key);
+                                    removedFromAny = true;
+                                }
+                            } else if (allocation[key].toString() === userId) {
                                 allocation[key] = [];
                                 allocation.markModified(key);
                                 removedFromAny = true;
@@ -92,11 +110,22 @@ module.exports = {
                         }
                     });
 
-                    // 2. Wipe user from all queues
+                    // 2. Also dynamic sweep through top-level document properties in case field names vary
+                    for (const k of Object.keys(rawDoc)) {
+                        if (k === '_id' || k === '__v' || k === 'messageId' || k === 'channelId') continue;
+                        if (Array.isArray(allocation[k]) && allocation[k].map(id => id.toString()).includes(userId)) {
+                            allocation[k] = allocation[k].filter(id => id.toString() !== userId);
+                            allocation.markModified(k);
+                            removedFromAny = true;
+                        }
+                    }
+
+                    // 3. Wipe user from all queues
                     if (allocation.queues) {
-                        ALL_SCHEMA_KEYS.forEach(key => {
-                            if (Array.isArray(allocation.queues[key]) && allocation.queues[key].includes(userId)) {
-                                allocation.queues[key] = allocation.queues[key].filter(id => id !== userId);
+                        const queueKeys = Object.keys(allocation.queues.toObject ? allocation.queues.toObject() : allocation.queues);
+                        queueKeys.forEach(key => {
+                            if (Array.isArray(allocation.queues[key]) && allocation.queues[key].map(id => id.toString()).includes(userId)) {
+                                allocation.queues[key] = allocation.queues[key].filter(id => id.toString() !== userId);
                                 allocation.markModified('queues');
                                 removedFromAny = true;
                             }
@@ -128,7 +157,7 @@ module.exports = {
                 }
 
                 // ------------------------------------------
-                // B. TOGGLE SPECIFIC ROLE (alloc_cpt, alloc_stbyFd, etc.)
+                // B. TOGGLE SPECIFIC ROLE (alloc_cpt, alloc_gate, etc.)
                 // ------------------------------------------
                 const rawRoleKey = rawValue.replace(/^(alloc_|join_)/, ''); 
                 
@@ -147,22 +176,22 @@ module.exports = {
 
                 const possibleKeys = KEY_ALIASES[roleKey] || [roleKey];
                 
-                // Ensure target properties exist
+                // Ensure property arrays exist
                 if (!allocation[roleKey]) allocation[roleKey] = [];
                 if (!Array.isArray(allocation[roleKey])) allocation[roleKey] = [];
                 if (!allocation.queues) allocation.queues = {};
                 if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
 
-                // Check if user is allocated across any alias variant in the document
+                // Check allocation status across aliases
                 let isAllocated = false;
                 let matchedKey = roleKey;
                 for (const k of possibleKeys) {
                     if (allocation[k]) {
-                        if (Array.isArray(allocation[k]) && allocation[k].includes(userId)) {
+                        if (Array.isArray(allocation[k]) && allocation[k].map(id => id.toString()).includes(userId)) {
                             isAllocated = true;
                             matchedKey = k;
                             break;
-                        } else if (allocation[k] === userId) {
+                        } else if (allocation[k].toString() === userId) {
                             isAllocated = true;
                             matchedKey = k;
                             break;
@@ -170,7 +199,7 @@ module.exports = {
                     }
                 }
 
-                const isInQueue = allocation.queues[roleKey].includes(userId);
+                const isInQueue = Array.isArray(allocation.queues[roleKey]) && allocation.queues[roleKey].map(id => id.toString()).includes(userId);
                 const flightNum = allocation.flight?.number || 'Unknown';
 
                 if (allocation.isLocked === true) {
@@ -194,24 +223,23 @@ module.exports = {
 
                 if (isAllocated || isInQueue) {
                     if (isAllocated) {
-                        // Wipe from all key aliases to prevent orphaned IDs
+                        // De-allocate user across alias keys
                         possibleKeys.forEach(k => {
                             if (Array.isArray(allocation[k])) {
-                                allocation[k] = allocation[k].filter(id => id !== userId);
+                                allocation[k] = allocation[k].filter(id => id.toString() !== userId);
                                 allocation.markModified(k);
-                            } else if (allocation[k] === userId) {
+                            } else if (allocation[k] && allocation[k].toString() === userId) {
                                 allocation[k] = [];
                                 allocation.markModified(k);
                             }
                         });
 
-                        // Promote next inline candidate from queue if available
+                        // Promote candidate inline from waiting queue if populated
                         let promotedUser = null;
-                        if (allocation.queues[roleKey].length > 0) {
+                        if (allocation.queues[roleKey] && allocation.queues[roleKey].length > 0) {
                             const nextUserId = allocation.queues[roleKey].shift();
                             allocation.markModified('queues');
                             
-                            // Save to matched key array
                             if (Array.isArray(allocation[matchedKey])) {
                                 allocation[matchedKey].push(nextUserId);
                                 allocation.markModified(matchedKey);
@@ -242,7 +270,7 @@ module.exports = {
                         });
 
                     } else if (isInQueue) {
-                        allocation.queues[roleKey] = allocation.queues[roleKey].filter(id => id !== userId);
+                        allocation.queues[roleKey] = allocation.queues[roleKey].filter(id => id.toString() !== userId);
                         allocation.markModified('queues');
 
                         await allocation.save();
@@ -259,10 +287,9 @@ module.exports = {
                     }
 
                 } else {
-                    // Check slot availability
-                    const currentSlotCount = Array.isArray(allocation[matchedKey]) ? allocation[matchedKey].length : allocation[roleKey].length;
+                    const currentList = Array.isArray(allocation[matchedKey]) ? allocation[matchedKey] : allocation[roleKey];
 
-                    if (currentSlotCount < maxSlots) {
+                    if (currentList.length < maxSlots) {
                         if (Array.isArray(allocation[matchedKey])) {
                             allocation[matchedKey].push(userId);
                             allocation.markModified(matchedKey);
