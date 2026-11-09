@@ -10,7 +10,6 @@ module.exports = {
 
     client.user.setActivity('LOT Operations', { type: ActivityType.Watching });
 
-    // Initial startup execution
     try {
       await updateCalendar(client);
       await checkUpcomingDepartures(client);
@@ -23,20 +22,16 @@ module.exports = {
       }
     }
 
-    // Departure alert engine (Runs every 10 seconds)
     setInterval(async () => {
       try {
         await updateCalendar(client);
         await checkUpcomingDepartures(client);
       } catch (err) {
-        if (err.code === 50001 || err.code === 10003) {
-          return;
-        }
+        if (err.code === 50001 || err.code === 10003) return;
         console.error('Error running departures alert engine:', err);
       }
     }, 10 * 1000); 
 
-    // LOA schedule runner (Runs every 10 minutes)
     setInterval(async () => {
       try {
         console.log('[LOA Engine] Running automated schedule scan...');
