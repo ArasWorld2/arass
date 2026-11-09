@@ -16,8 +16,8 @@ const KEY_ALIASES = {
     ts: ['tarmacSupervisor', 'ts', 'tarmac_supervisor'],
     gc: ['groundHandling', 'gc', 'groundCrew', 'ground_crew'],
     stbyGc: ['standbyGroundCrew', 'stbyGc', 'stby_gc', 'standby_ground_crew'],
-    bcbd: ['bagDropAgent', 'bcbd', 'businessBagDrop', 'businessClassBagDrop'],
-    ecbd: ['bagDropAgent', 'ecbd', 'economyBagDrop', 'economyClassBagDrop'],
+    bcbd: ['bagDropAgent', 'bcbd', 'businessClassBagDrop'],
+    ecbd: ['bagDropAgent', 'ecbd', 'economyClassBagDrop'],
     cs: ['cs', 'customerService', 'customer_service'],
     gate: ['gateAgent', 'gate', 'gate_agent'],
     lounge: ['loungeAttendant', 'lounge']
@@ -76,9 +76,9 @@ module.exports = {
 
                     let removedFromAny = false;
                     const removedRoles = [];
+                    const promotedUsers = [];
                     const flightNum = allocation.flight?.number || 'Unknown Flight';
 
-                    // Helper to get formatted role labels from embeds utility
                     const getRoleLabel = (key) => {
                         if (embeds && typeof embeds.getRoleConfig === 'function') {
                             const config = embeds.getRoleConfig(key);
@@ -87,8 +87,41 @@ module.exports = {
                         return key;
                     };
 
-                    // 1. Wipe user across ALL schema property fields (arrays and strings)
-                    ALL_SCHEMA_KEYS.forEach(key => {
+                    if (!allocation.queues) allocation.queues = {};
+
+                    // Helper function to promote queued user when a key frees up
+                    const checkAndPromote = async (matchedKey, schemaKey) => {
+                        const possibleAliasKeys = [schemaKey, matchedKey, ...(KEY_ALIASES[schemaKey] || [])];
+                        let queueKey = possibleAliasKeys.find(k => 
+                            Array.isArray(allocation.queues[k]) && allocation.queues[k].length > 0
+                        );
+
+                        if (queueKey && allocation.queues[queueKey].length > 0) {
+                            const nextUserId = allocation.queues[queueKey].shift();
+                            allocation.markModified('queues');
+
+                            if (Array.isArray(allocation[matchedKey])) {
+                                allocation[matchedKey].push(nextUserId);
+                                allocation.markModified(matchedKey);
+                            } else {
+                                allocation[schemaKey] = allocation[schemaKey] || [];
+                                allocation[schemaKey].push(nextUserId);
+                                allocation.markModified(schemaKey);
+                            }
+
+                            try {
+                                const userObj = await interaction.client.users.fetch(nextUserId);
+                                if (userObj) {
+                                    promotedUsers.push({ user: userObj, roleLabel: getRoleLabel(schemaKey) });
+                                }
+                            } catch (err) {
+                                console.warn(`Failed to fetch promoted candidate ${nextUserId}:`, err.message);
+                            }
+                        }
+                    };
+
+                    // 1. Wipe user across ALL mapped schema keys and check for queued candidate promotions
+                    for (const key of ALL_SCHEMA_KEYS) {
                         if (allocation[key] !== undefined && allocation[key] !== null) {
                             if (Array.isArray(allocation[key])) {
                                 if (allocation[key].map(id => id.toString()).includes(userId)) {
@@ -97,6 +130,9 @@ module.exports = {
                                     removedFromAny = true;
                                     const label = getRoleLabel(key);
                                     if (!removedRoles.includes(label)) removedRoles.push(label);
+
+                                    // Promote queued user into freed slot
+                                    await checkAndPromote(key, key);
                                 }
                             } else if (allocation[key].toString() === userId) {
                                 allocation[key] = [];
@@ -104,24 +140,14 @@ module.exports = {
                                 removedFromAny = true;
                                 const label = getRoleLabel(key);
                                 if (!removedRoles.includes(label)) removedRoles.push(label);
-                            }
-                        }
-                    });
 
-                    // 2. Dynamic sweep through top-level document properties
-                    const rawDoc = allocation.toObject ? allocation.toObject() : allocation;
-                    for (const k of Object.keys(rawDoc)) {
-                        if (['_id', '__v', 'messageId', 'channelId', 'flight', 'createdAt', 'updatedAt'].includes(k)) continue;
-                        if (Array.isArray(allocation[k]) && allocation[k].map(id => id.toString()).includes(userId)) {
-                            allocation[k] = allocation[k].filter(id => id.toString() !== userId);
-                            allocation.markModified(k);
-                            removedFromAny = true;
-                            const label = getRoleLabel(k);
-                            if (!removedRoles.includes(label)) removedRoles.push(label);
+                                // Promote queued user into freed slot
+                                await checkAndPromote(key, key);
+                            }
                         }
                     }
 
-                    // 3. Wipe user from all queues
+                    // 2. Wipe user from all queues
                     if (allocation.queues) {
                         const queueKeys = Object.keys(allocation.queues.toObject ? allocation.queues.toObject() : allocation.queues);
                         queueKeys.forEach(key => {
@@ -141,10 +167,15 @@ module.exports = {
 
                     const rolesFormatted = removedRoles.length > 0 ? removedRoles.join(', ') : 'your roles';
 
-                    // Send Direct Message to the user
+                    // DM user leaving shift
                     await sendDM(interaction.user, `You have unallocated as **${rolesFormatted}** for **${flightNum}**.`);
 
-                    // Update main channel flight embed
+                    // DM users promoted from queue
+                    for (const p of promotedUsers) {
+                        await sendDM(p.user, `🎉 You have been automatically promoted from the waiting queue as **${p.roleLabel}** for **${flightNum}**!`);
+                    }
+
+                    // Refresh flight embed in Discord
                     if (embeds && typeof embeds.buildMainEmbed === 'function' && typeof embeds.buildButtons === 'function') {
                         await interaction.message.edit({
                             embeds: [embeds.buildMainEmbed(allocation.flight, allocation)],
@@ -152,7 +183,7 @@ module.exports = {
                         }).catch(err => console.error("Failed to edit flight embed:", err));
                     }
 
-                    // Audit Log
+                    // Audit log
                     await sendLog(interaction, {
                         action: '🔴 Left All Shifts',
                         user: interaction.user,
@@ -161,7 +192,6 @@ module.exports = {
                         messageId
                     });
 
-                    // Ephemeral response ("only you can see this")
                     return await interaction.editReply(`✅ You have unallocated as **${rolesFormatted}** for **${flightNum}**.`);
                 }
 
@@ -241,8 +271,10 @@ module.exports = {
                         });
 
                         let promotedUser = null;
-                        if (allocation.queues[roleKey] && allocation.queues[roleKey].length > 0) {
-                            const nextUserId = allocation.queues[roleKey].shift();
+                        const queueKeyMatch = possibleKeys.find(k => Array.isArray(allocation.queues[k]) && allocation.queues[k].length > 0) || roleKey;
+                        
+                        if (allocation.queues[queueKeyMatch] && allocation.queues[queueKeyMatch].length > 0) {
+                            const nextUserId = allocation.queues[queueKeyMatch].shift();
                             allocation.markModified('queues');
                             
                             if (Array.isArray(allocation[matchedKey])) {
@@ -263,7 +295,7 @@ module.exports = {
                         await sendDM(interaction.user, `You have unallocated as **${roleLabel}** for **${flightNum}**.`);
 
                         if (promotedUser) {
-                            await sendDM(promotedUser, `You have been allocated as **${roleLabel}** for **${flightNum}**.`);
+                            await sendDM(promotedUser, `🎉 You have been automatically promoted from the queue as **${roleLabel}** for **${flightNum}**!`);
                         }
 
                         await sendLog(interaction, {
