@@ -99,22 +99,27 @@ module.exports = {
 
     const possibleKeys = KEY_ALIASES[roleKey] || [roleKey];
     let isAllocated = false;
+    let matchedField = roleKey;
 
     // 1. Wipe target user from ALL matching key variants across the document
     possibleKeys.forEach(k => {
       if (allocation[k]) {
         if (Array.isArray(allocation[k])) {
-          if (allocation[k].includes(user.id)) isAllocated = true;
+          if (allocation[k].includes(user.id)) {
+            isAllocated = true;
+            matchedField = k;
+          }
           allocation[k] = allocation[k].filter(id => id !== user.id);
         } else if (allocation[k] === user.id) {
           isAllocated = true;
+          matchedField = k;
           allocation[k] = [];
         }
         allocation.markModified(k);
       }
     });
 
-    // 2. Check and clean queue
+    // 2. Check and clean user from queue
     if (!allocation.queues) allocation.queues = {};
     let isInQueue = false;
 
@@ -130,9 +135,44 @@ module.exports = {
       return interaction.editReply(`❌ <@${user.id}> is not in **${roleConfig.label}**.`);
     }
 
+    // 3. Promote candidate from waiting queue if a slot opened up
+    let promotedUser = null;
+    if (isAllocated) {
+      const queueKey = possibleKeys.find(k => 
+        allocation.queues[k] && Array.isArray(allocation.queues[k]) && allocation.queues[k].length > 0
+      );
+
+      if (queueKey && allocation.queues[queueKey].length > 0) {
+        const nextUserId = allocation.queues[queueKey].shift();
+        allocation.markModified('queues');
+
+        if (Array.isArray(allocation[matchedField])) {
+          allocation[matchedField].push(nextUserId);
+          allocation.markModified(matchedField);
+        } else if (Array.isArray(allocation[roleKey])) {
+          allocation[roleKey].push(nextUserId);
+          allocation.markModified(roleKey);
+        }
+
+        try {
+          promotedUser = await interaction.client.users.fetch(nextUserId);
+        } catch (err) {
+          console.warn(`Could not fetch promoted user ${nextUserId}:`, err.message);
+        }
+      }
+    }
+
     await allocation.save();
 
-    // 3. Re-fetch fresh document to ensure embed has synced values
+    // 4. Send DMs to unallocated user and promoted candidate
+    const flightNum = allocation.flight?.number || 'Flight';
+    await sendDM(user, `You have been unallocated from **${roleConfig.label}** for **${flightNum}** by management.`);
+    
+    if (promotedUser) {
+      await sendDM(promotedUser, `🎉 You have been automatically promoted from the queue to **${roleConfig.label}** for **${flightNum}**!`);
+    }
+
+    // 5. Re-fetch fresh document to ensure embed has synced values
     const updatedAllocation = await Allocation.findOne({ messageId });
 
     // Update main Discord embed sheet
@@ -156,9 +196,21 @@ module.exports = {
       messageId,
     });
 
-    return interaction.editReply(`✅ Removed <@${user.id}> from **${roleConfig.label}**.`);
+    const replyMessage = promotedUser 
+      ? `✅ Removed <@${user.id}> from **${roleConfig.label}**. Promoted <@${promotedUser.id}> from the queue!`
+      : `✅ Removed <@${user.id}> from **${roleConfig.label}**.`;
+
+    return interaction.editReply(replyMessage);
   },
 };
+
+async function sendDM(user, messageText) {
+  try {
+    await user.send(messageText);
+  } catch (err) {
+    console.warn(`Could not DM user ${user?.id}: DMs closed.`);
+  }
+}
 
 async function sendLog(interaction, { action, admin, target, role, flightNumber, messageId }) {
   const logChannelId = process.env.LOG_CHANNEL_ID;
