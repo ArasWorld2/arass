@@ -30,7 +30,6 @@ module.exports = {
                 const userId = interaction.user.id;
                 const messageId = interaction.message.id;
                 const rawValue = interaction.values[0]; 
-                const roleKey = rawValue.replace('join_', ''); 
 
                 const allocation = await Allocation.findOne({ messageId });
                 if (!allocation) {
@@ -39,6 +38,69 @@ module.exports = {
                         flags: [MessageFlags.Ephemeral]
                     });
                 }
+
+                // Handle Leave Shift / Unallocate option
+                if (rawValue === 'alloc_unallocate' || rawValue === 'unallocate') {
+                    if (allocation.isLocked === true) {
+                        return await interaction.reply({
+                            content: '🔒 **Allocation Locked:** This flight sheet has been locked by administration. You cannot leave your role at this time.',
+                            flags: [MessageFlags.Ephemeral]
+                        });
+                    }
+
+                    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+
+                    let removedFromAny = false;
+                    const rolesList = embeds.ROLES || [];
+
+                    // Remove user from all active slots and promote queued members if needed
+                    for (const r of rolesList) {
+                        const key = r.key;
+                        if (Array.isArray(allocation[key]) && allocation[key].includes(userId)) {
+                            allocation[key] = allocation[key].filter(id => id !== userId);
+                            removedFromAny = true;
+
+                            // Promote next user in queue
+                            if (allocation.queues && Array.isArray(allocation.queues[key]) && allocation.queues[key].length > 0) {
+                                const nextUserId = allocation.queues[key].shift();
+                                allocation[key].push(nextUserId);
+
+                                const promotedUser = await interaction.client.users.fetch(nextUserId).catch(() => null);
+                                if (promotedUser) {
+                                    await sendDM(promotedUser, `You have been allocated as **${r.label}** for **${allocation.flight?.number || 'Flight'}**.`);
+                                }
+                            }
+                        }
+
+                        // Remove from queues
+                        if (allocation.queues && Array.isArray(allocation.queues[key]) && allocation.queues[key].includes(userId)) {
+                            allocation.queues[key] = allocation.queues[key].filter(id => id !== userId);
+                            removedFromAny = true;
+                        }
+                    }
+
+                    await allocation.save();
+
+                    if (embeds && typeof embeds.buildMainEmbed === 'function' && typeof embeds.buildButtons === 'function') {
+                        await interaction.message.edit({
+                            embeds: [embeds.buildMainEmbed(allocation.flight, allocation)],
+                            components: embeds.buildButtons()
+                        }).catch(err => console.error("Failed to edit flight embed:", err));
+                    }
+
+                    await sendLog(interaction, {
+                        action: '🔴 Left All Shifts',
+                        user: interaction.user,
+                        role: 'All Positions',
+                        flightNumber: allocation.flight?.number || 'Unknown',
+                        messageId
+                    });
+
+                    return await interaction.editReply(removedFromAny ? '✅ You have left your shift allocations.' : '⚠️ You were not allocated to any roles on this flight.');
+                }
+
+                // Parse key from alloc_cpt or join_cpt -> cpt
+                const roleKey = rawValue.replace(/^(alloc_|join_)/, ''); 
 
                 if (!allocation[roleKey]) allocation[roleKey] = [];
                 if (!allocation.queues) allocation.queues = {};
@@ -239,10 +301,10 @@ module.exports = {
                 });
 
                 const reviewEmbed = new EmbedBuilder()
-                    .setColor('#d3007f')
+                    .setColor('#0C2340')
                     .setTitle('New Leave of Absence Request')
                     .setDescription(`┃ User: <@${interaction.user.id}>\n┃ From: ${startStr}\n┃ To: ${endStr}\n\nReason Given\n┃ \`${reason}\``)
-                    .setFooter({ text: '© Wizz Air' })
+                    .setFooter({ text: 'LOT Polish Airlines • Flight Operations' })
                     .setTimestamp();
 
                 const row = new ActionRowBuilder().addComponents(
@@ -337,7 +399,7 @@ module.exports = {
                             replyMessage = '🔴 Removed from the **Captain** lottery pool.';
                         } else {
                             allocation.cptPool.push(userId);
-                            allocation.foPool = allocation.foPool.filter(id => id !== userId); // Ensure user is in only one pool
+                            allocation.foPool = allocation.foPool.filter(id => id !== userId);
                             replyMessage = '✅ Successfully entered the **Captain** lottery pool!';
                         }
                     } else {
@@ -346,14 +408,13 @@ module.exports = {
                             replyMessage = '🔴 Removed from the **First Officer** lottery pool.';
                         } else {
                             allocation.foPool.push(userId);
-                            allocation.cptPool = allocation.cptPool.filter(id => id !== userId); // Ensure user is in only one pool
+                            allocation.cptPool = allocation.cptPool.filter(id => id !== userId);
                             replyMessage = '✅ Successfully entered the **First Officer** lottery pool!';
                         }
                     }
 
                     await allocation.save();
 
-                    // Dynamic live update of the lottery embed pool counters
                     const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
                         .setDescription(
                             `Click below to register for **Captain** or **First Officer** for flight **${allocation.flight.number}**.\n\n` +
@@ -427,10 +488,10 @@ module.exports = {
                     await loaRecord.save();
 
                     const updatedEmbed = new EmbedBuilder()
-                        .setColor('#d3007f') 
+                        .setColor('#0C2340') 
                         .setTitle('Leave Approved')
                         .setDescription(`┃ This leave request has been approved by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nApproved Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
-                        .setFooter({ text: '© Wizz Air' })
+                        .setFooter({ text: 'LOT Polish Airlines • Flight Operations' })
                         .setTimestamp();
 
                     const managementRow = new ActionRowBuilder().addComponents(
@@ -461,7 +522,7 @@ module.exports = {
                         .setColor('#e74c3c') 
                         .setTitle('Leave Denied')
                         .setDescription(`┃ This leave request has been denied by <@${interaction.user.id}>.\n\nMember\n┃ <@${loaRecord.userId}>\n\nRequested Dates\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``)
-                        .setFooter({ text: '© Wizz Air' })
+                        .setFooter({ text: 'LOT Polish Airlines • Flight Operations' })
                         .setTimestamp();
 
                     await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
