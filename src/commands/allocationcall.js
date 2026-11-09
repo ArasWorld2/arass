@@ -1,6 +1,14 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, EmbedBuilder } = require('discord.js');
 const Allocation = require('../models/Allocation');
 const { checkRole } = require('../utils/checkRole');
+
+// Custom LOT Emojis
+const EMOJIS = {
+  TAIL: '<:LOTTail:1520114549490057226>',
+  ARROW: '<:LOTSArrow:1520114515318935584>',
+  HEART: '<:LOTSHeart:1520114525586849985>',
+  CLICK: '<:leftclick:1520114571124150373>'
+};
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -60,30 +68,38 @@ module.exports = {
     }
 
     const flight = allocation.flight || {};
-    const flightNum = flight.number || 'W6 Flight';
+    const flightNum = flight.number || 'LO Flight';
     const dateStr = flight.date || 'Upcoming';
 
-    // 2. Define role mappings and capacity limits
+    // 2. Define LOT Polish Airlines role mappings and capacity limits
     const roleConfig = [
-      { key: 'flightDispatcher', label: 'Flight Dispatcher', group: 'Ground Operations', max: 1 },
-      { key: 'flightSupervisor', label: 'Flight Supervisor', group: 'Ground Operations', max: 2 },
-      { key: 'captain', label: 'Flight Crew (Captain & First Officer)', group: 'Flight Crew', max: 1 },
-      { key: 'firstOfficer', label: 'Flight Crew (Captain & First Officer)', group: 'Flight Crew', max: 1 },
-      { key: 'seniorCabinAttendant', label: 'Cabin Crew', group: 'Cabin Crew', max: 1 },
-      { key: 'cabinCrew', label: 'Cabin Crew', group: 'Cabin Crew', max: 4 },
-      { key: 'turnaroundManager', label: 'Ground Operations / Tarmac Agent', group: 'Ground Operations', max: 1 },
-      { key: 'groundCrew', label: 'Ground Operations / Tarmac Agent', group: 'Ground Operations', max: 3 },
-      { key: 'customerService', label: 'Ground Operations / Tarmac Agent', group: 'Ground Operations', max: 3 },
-      { key: 'bagDropAgent', label: 'Ground Operations / Tarmac Agent', group: 'Ground Operations', max: 3 },
-      { key: 'gateAgent', label: 'Ground Operations / Tarmac Agent', group: 'Ground Operations', max: 1 },
-      { key: 'loungeAttendant', label: 'Ground Operations / Tarmac Agent', group: 'Ground Operations', max: 2 }
+      { keys: ['dc', 'dispatchCoordinator', 'departureCoordinator'], label: 'Departure Coordinator', group: 'Flight Management', max: 1 },
+      { keys: ['mb', 'dispatchSupervisor', 'flightSupervisor', 'managementBoard'], label: 'Management Board', group: 'Flight Management', max: 10 },
+      { keys: ['cpt', 'captain'], label: 'Captain', group: 'Flight Deck', max: 1 },
+      { keys: ['fo', 'firstOfficer'], label: 'First Officer', group: 'Flight Deck', max: 1 },
+      { keys: ['stbyFd', 'standbyFlightDeck'], label: 'Stand-by Flight Deck', group: 'Flight Deck', max: 10 },
+      { keys: ['purser'], label: 'Purser', group: 'Cabin Crew', max: 1 },
+      { keys: ['cc', 'cabinCrew'], label: 'Cabin Crew', group: 'Cabin Crew', max: 3 },
+      { keys: ['stbyCc', 'standbyCabinCrew'], label: 'Stand-by Cabin Crew', group: 'Cabin Crew', max: 10 },
+      { keys: ['ts', 'tarmacSupervisor'], label: 'Tarmac Supervisor', group: 'Ground Crew', max: 1 },
+      { keys: ['gc', 'groundHandling', 'groundCrew'], label: 'Ground Crew', group: 'Ground Crew', max: 3 },
+      { keys: ['stbyGc', 'standbyGroundCrew'], label: 'Stand-by Ground Crew', group: 'Ground Crew', max: 10 },
+      { keys: ['bcbd', 'bagDropAgent', 'businessClassBagDrop'], label: 'Business Class Bag Drop', group: 'Airport Worker', max: 1 },
+      { keys: ['ecbd', 'economyBagDrop', 'economyClassBagDrop'], label: 'Economy Class Bag Drop', group: 'Airport Worker', max: 3 },
+      { keys: ['cs', 'customerService'], label: 'Customer Service', group: 'Airport Worker', max: 2 },
+      { keys: ['gate', 'gateAgent'], label: 'Gate Agent', group: 'Airport Worker', max: 1 }
     ];
 
     // 3. Scan for unfilled categories
-    let neededCategoriesSet = new Set();
+    const neededCategoriesSet = new Set();
     
     for (const role of roleConfig) {
-      const filledCount = Array.isArray(allocation[role.key]) ? allocation[role.key].length : 0;
+      let filledCount = 0;
+      for (const key of role.keys) {
+        if (Array.isArray(allocation[key])) {
+          filledCount += allocation[key].length;
+        }
+      }
       if (filledCount < role.max) {
         neededCategoriesSet.add(role.group);
       }
@@ -91,9 +107,9 @@ module.exports = {
 
     let positionsNeededFormatted = '';
     if (neededCategoriesSet.size > 0) {
-      positionsNeededFormatted = Array.from(neededCategoriesSet).map(cat => `${cat}`).join('\n\n');
+      positionsNeededFormatted = Array.from(neededCategoriesSet).map(cat => `${EMOJIS.ARROW} ${cat}`).join('\n');
     } else {
-      positionsNeededFormatted = 'All positions are currently filled.';
+      positionsNeededFormatted = `${EMOJIS.ARROW} All positions are currently filled.`;
     }
 
     // 4. Gather all users currently assigned or queued on this flight
@@ -101,18 +117,31 @@ module.exports = {
     const docData = allocation.toObject();
     for (const key in docData) {
       if (Array.isArray(docData[key])) {
-        docData[key].forEach(id => allocatedUserIds.add(id));
+        docData[key].forEach(id => allocatedUserIds.add(id.toString()));
       }
     }
     if (docData.queues) {
       for (const qKey in docData.queues) {
         if (Array.isArray(docData.queues[qKey])) {
-          docData.queues[qKey].forEach(id => allocatedUserIds.add(id));
+          docData.queues[qKey].forEach(id => allocatedUserIds.add(id.toString()));
         }
       }
     }
 
-    // 5. DM anyone NOT allocated (No public message sent anywhere)
+    // 5. Build LOT-themed Call-Out DM Embed
+    const callEmbed = new EmbedBuilder()
+      .setColor('#0C2340') // LOT Polish Airlines Navy Blue
+      .setTitle(`${EMOJIS.TAIL} **LOT Polish Airlines • Urgent Staff Allocation Notice**`)
+      .setDescription(
+        `${EMOJIS.ARROW} We urgently require staff to allocate for **${flightNum}** scheduled for **${dateStr}**.\n` +
+        `> Personnel stepping up to cover this route will receive an additional **0.5 duty credit** on their operational record.\n\n` +
+        `${EMOJIS.HEART} **Departments Requiring Support:**\n${positionsNeededFormatted}\n\n` +
+        `${EMOJIS.CLICK} Please head to <#${allocation.channelId}> to select your duty role.`
+      )
+      .setFooter({ text: 'LOT Polish Airlines • Flight Operations' })
+      .setTimestamp();
+
+    // 6. DM non-allocated staff members
     let dmCount = 0;
     try {
       await interaction.guild.members.fetch();
@@ -122,16 +151,10 @@ module.exports = {
 
         if (!allocatedUserIds.has(memberId)) {
           try {
-            await member.user.send({
-              content: `:WZZHeart: **Staff Allocation Notice**\n\n` +
-                       `We urgently need staff to sign up for flight **${flightNum}** departing on **${dateStr}**.\n` +
-                       `Personnel who step up and operate this route will receive an additional **0.5 duty point** included in their payroll.\n\n` +
-                       `**Positions Needed:**\n${positionsNeededFormatted}\n\n` +
-                       `Please submit your sign-up in <#${allocation.channelId}> if you can cover this.`
-            });
+            await member.user.send({ embeds: [callEmbed] });
             dmCount++;
           } catch {
-            // DMs closed or failed
+            // User DMs are closed or disabled
           }
         }
       }
@@ -140,7 +163,7 @@ module.exports = {
     }
 
     return interaction.editReply(
-      `✅ Successfully sent private DMs to **${dmCount}** unallocated staff members for flight **${flightNum}** (No public messages were posted)!`
+      `✅ Successfully dispatched LOT allocation notices via private DM to **${dmCount}** unallocated staff members for flight **${flightNum}**!`
     );
   },
 };
