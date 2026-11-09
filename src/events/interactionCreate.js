@@ -3,19 +3,19 @@ const Allocation = require('../models/Allocation');
 const Loa = require('../models/Loa');
 const embeds = require('../utils/embeds'); 
 
-// Schema key mapping covering both short keys and full MongoDB property names
+// Comprehensive dictionary mapping short menu keys to MongoDB schema property names
 const KEY_ALIASES = {
     dc: ['dispatchCoordinator', 'dc', 'departureCoordinator', 'departure_coordinator', 'DC'],
     mb: ['dispatchSupervisor', 'flightSupervisor', 'mb', 'managementBoard', 'management_board'],
     cpt: ['captain', 'cpt', 'CPT'],
     fo: ['firstOfficer', 'fo', 'FO'],
-    stbyFd: ['stbyFd', 'standbyFlightDeck', 'stby_fd'],
+    stbyFd: ['standbyFlightDeck', 'stbyFd', 'stby_fd', 'standby_flight_deck'],
     purser: ['purser', 'Purser'],
     cc: ['cabinCrew', 'cc', 'cabin_crew', 'CC'],
-    stbyCc: ['stbyCc', 'standbyCabinCrew', 'stby_cc'],
+    stbyCc: ['standbyCabinCrew', 'stbyCc', 'stby_cc', 'standby_cabin_crew'],
     ts: ['tarmacSupervisor', 'ts', 'tarmac_supervisor'],
     gc: ['groundHandling', 'gc', 'groundCrew', 'ground_crew'],
-    stbyGc: ['stbyGc', 'standbyGroundCrew', 'stby_gc'],
+    stbyGc: ['standbyGroundCrew', 'stbyGc', 'stby_gc', 'standby_ground_crew'],
     bcbd: ['bagDropAgent', 'bcbd', 'businessBagDrop', 'businessClassBagDrop'],
     ecbd: ['bagDropAgent', 'ecbd', 'economyBagDrop', 'economyClassBagDrop'],
     cs: ['cs', 'customerService', 'customer_service'],
@@ -23,7 +23,8 @@ const KEY_ALIASES = {
     lounge: ['loungeAttendant', 'lounge']
 };
 
-const ALL_POSSIBLE_KEYS = Array.from(new Set(Object.values(KEY_ALIASES).flat()));
+// Flattened list of every conceivable MongoDB field name across all roles
+const ALL_SCHEMA_KEYS = Array.from(new Set(Object.values(KEY_ALIASES).flat()));
 
 module.exports = {
     name: Events.InteractionCreate,
@@ -61,7 +62,9 @@ module.exports = {
                     });
                 }
 
-                // --- A. HANDLE LEAVE SHIFT / UNALLOCATE ---
+                // ------------------------------------------
+                // A. HANDLE LEAVE SHIFT / UNALLOCATE
+                // ------------------------------------------
                 if (rawValue === 'alloc_unallocate' || rawValue === 'unallocate') {
                     if (allocation.isLocked === true) {
                         return await interaction.reply({
@@ -74,8 +77,8 @@ module.exports = {
 
                     let removedFromAny = false;
 
-                    // 1. Check & wipe user across all schema key aliases
-                    ALL_POSSIBLE_KEYS.forEach(key => {
+                    // 1. Wipe user across ALL schema property fields in the MongoDB document
+                    ALL_SCHEMA_KEYS.forEach(key => {
                         if (allocation[key]) {
                             if (Array.isArray(allocation[key]) && allocation[key].includes(userId)) {
                                 allocation[key] = allocation[key].filter(id => id !== userId);
@@ -89,9 +92,9 @@ module.exports = {
                         }
                     });
 
-                    // 2. Remove user from all queues & promote next inline
+                    // 2. Wipe user from all queues
                     if (allocation.queues) {
-                        ALL_POSSIBLE_KEYS.forEach(key => {
+                        ALL_SCHEMA_KEYS.forEach(key => {
                             if (Array.isArray(allocation.queues[key]) && allocation.queues[key].includes(userId)) {
                                 allocation.queues[key] = allocation.queues[key].filter(id => id !== userId);
                                 allocation.markModified('queues');
@@ -124,7 +127,9 @@ module.exports = {
                     return await interaction.editReply('✅ You have left your shift allocations.');
                 }
 
-                // --- B. TOGGLE SPECIFIC ROLE ---
+                // ------------------------------------------
+                // B. TOGGLE SPECIFIC ROLE (alloc_cpt, alloc_stbyFd, etc.)
+                // ------------------------------------------
                 const rawRoleKey = rawValue.replace(/^(alloc_|join_)/, ''); 
                 
                 let roleLabel = rawRoleKey;
@@ -142,13 +147,13 @@ module.exports = {
 
                 const possibleKeys = KEY_ALIASES[roleKey] || [roleKey];
                 
-                // Ensure array structures exist
+                // Ensure target properties exist
                 if (!allocation[roleKey]) allocation[roleKey] = [];
                 if (!Array.isArray(allocation[roleKey])) allocation[roleKey] = [];
                 if (!allocation.queues) allocation.queues = {};
                 if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
 
-                // Check allocation & queue across all key variants
+                // Check if user is allocated across any alias variant in the document
                 let isAllocated = false;
                 let matchedKey = roleKey;
                 for (const k of possibleKeys) {
@@ -189,7 +194,7 @@ module.exports = {
 
                 if (isAllocated || isInQueue) {
                     if (isAllocated) {
-                        // Remove from all property variants
+                        // Wipe from all key aliases to prevent orphaned IDs
                         possibleKeys.forEach(k => {
                             if (Array.isArray(allocation[k])) {
                                 allocation[k] = allocation[k].filter(id => id !== userId);
@@ -200,13 +205,20 @@ module.exports = {
                             }
                         });
 
-                        // Promote candidate from queue if available
+                        // Promote next inline candidate from queue if available
                         let promotedUser = null;
                         if (allocation.queues[roleKey].length > 0) {
                             const nextUserId = allocation.queues[roleKey].shift();
                             allocation.markModified('queues');
-                            allocation[roleKey].push(nextUserId);
-                            allocation.markModified(roleKey);
+                            
+                            // Save to matched key array
+                            if (Array.isArray(allocation[matchedKey])) {
+                                allocation[matchedKey].push(nextUserId);
+                                allocation.markModified(matchedKey);
+                            } else {
+                                allocation[roleKey].push(nextUserId);
+                                allocation.markModified(roleKey);
+                            }
 
                             try {
                                 promotedUser = await interaction.client.users.fetch(nextUserId);
@@ -247,9 +259,17 @@ module.exports = {
                     }
 
                 } else {
-                    if (allocation[roleKey].length < maxSlots) {
-                        allocation[roleKey].push(userId);
-                        allocation.markModified(roleKey);
+                    // Check slot availability
+                    const currentSlotCount = Array.isArray(allocation[matchedKey]) ? allocation[matchedKey].length : allocation[roleKey].length;
+
+                    if (currentSlotCount < maxSlots) {
+                        if (Array.isArray(allocation[matchedKey])) {
+                            allocation[matchedKey].push(userId);
+                            allocation.markModified(matchedKey);
+                        } else {
+                            allocation[roleKey].push(userId);
+                            allocation.markModified(roleKey);
+                        }
 
                         await allocation.save();
                         await interaction.editReply(`✅ Allocated as **${roleLabel}**!`);
