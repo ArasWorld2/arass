@@ -15,15 +15,15 @@ const { checkRole } = require('../utils/checkRole');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('postflight')
-    .setDescription('Post a new Wizz Air flight allocation sheet into a new personnel flight channel')
-    .addStringOption(o => o.setName('number').setDescription('Flight number, e.g. W62341').setRequired(true))
-    .addStringOption(o => o.setName('from').setDescription('Departure airport, e.g. London Luton Airport').setRequired(true))
-    .addStringOption(o => o.setName('to').setDescription('Arrival airport, e.g. Budapest Airport').setRequired(true))
+    .setDescription('Post a new LOT Polish Airlines flight allocation sheet into a new personnel flight channel')
+    .addStringOption(o => o.setName('number').setDescription('Flight number, e.g. LO281').setRequired(true))
+    .addStringOption(o => o.setName('from').setDescription('Departure airport, e.g. Warsaw Chopin Airport').setRequired(true))
+    .addStringOption(o => o.setName('to').setDescription('Arrival airport, e.g. London Heathrow Airport').setRequired(true))
     .addStringOption(o => o.setName('staff_time').setDescription('Duty report time, e.g. 19:40').setRequired(true))
     .addStringOption(o => o.setName('passenger_time').setDescription('Passenger report time, e.g. 20:00').setRequired(true))
-    .addStringOption(o => o.setName('aircraft').setDescription('Aircraft type, e.g. Airbus A321neo').setRequired(true))
+    .addStringOption(o => o.setName('aircraft').setDescription('Aircraft type, e.g. Boeing 737 MAX 8 / Embraer E195').setRequired(true))
     .addStringOption(o => o.setName('date').setDescription('Flight date, e.g. 10 May 2026').setRequired(false))
-    .addStringOption(o => o.setName('gate').setDescription('Departure gate, e.g. B12').setRequired(false))
+    .addStringOption(o => o.setName('gate').setDescription('Departure gate, e.g. 23R').setRequired(false))
     .addStringOption(o => o.setName('boarding_time').setDescription('Boarding time, e.g. 10:00').setRequired(false))
     .addStringOption(o => o.setName('operations_closure').setDescription('Operations closure time, e.g. 10:15').setRequired(false))
     .addIntegerOption(o => o.setName('reminder_minutes').setDescription('Minutes before staff_time to send DMs (Default: 15)').setRequired(false)),
@@ -61,7 +61,7 @@ module.exports = {
         name: channelName,
         type: ChannelType.GuildText,
         parent: flightCategoryId || null,
-        topic: `Flight Operations channel for ${flight.number} (${flight.from} → ${flight.to})`,
+        topic: `LOT Flight Operations channel for ${flight.number} (${flight.from} → ${flight.to})`,
       });
 
       // 2. Post the main flight briefing sheet inside the newly created flight channel
@@ -72,7 +72,7 @@ module.exports = {
 
       // 3. Build Detailed Flight Deck Selection Embed (For #fd-pool)
       const fdEmbed = new EmbedBuilder()
-        .setColor('#D3007F')
+        .setColor('#0C2340') // LOT Navy Blue Accent
         .setTitle(`Flight Deck Allocation Pool — ${flight.number}`)
         .setDescription(
           `Click below to register for **Captain** or **First Officer** for flight **${flight.number}**.\n` +
@@ -85,7 +85,7 @@ module.exports = {
           `• **Captain Candidates:** 0\n` +
           `• **First Officer Candidates:** 0`
         )
-        .setFooter({ text: 'Wizz Air Flight Operations • Flight Deck Selection' })
+        .setFooter({ text: 'LOT Polish Airlines • Flight Operations Deck Selection' })
         .setTimestamp();
 
       const fdRow = new ActionRowBuilder().addComponents(
@@ -133,7 +133,7 @@ module.exports = {
         scheduleReminders(interaction.client, allocation, reminderMinutes);
       }
 
-      await interaction.editReply(`✅ Created channel <#${flightChannel.id}>, posted flight sheet, and sent FD pool card to <#${fdMessage.channelId}>!`);
+      await interaction.editReply(`✅ Created channel <#${flightChannel.id}>, posted LOT allocation sheet, and sent FD pool card to <#${fdMessage.channelId}>!`);
 
     } catch (error) {
       console.error('❌ Error executing /postflight:', error);
