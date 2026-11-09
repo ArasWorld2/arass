@@ -8,10 +8,9 @@ module.exports = {
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
-    // Updated default status activity
     client.user.setActivity('LOT Operations', { type: ActivityType.Watching });
 
-    // Run loops immediately when bot turns on with a safety wrapper
+    // Initial startup execution
     try {
       await updateCalendar(client);
       await checkUpcomingDepartures(client);
@@ -24,7 +23,7 @@ module.exports = {
       }
     }
 
-    // Runs every 10 seconds. Ultra fast updates without hitting rate-limits!
+    // Departure alert engine (Runs every 10 seconds)
     setInterval(async () => {
       try {
         await updateCalendar(client);
@@ -37,7 +36,7 @@ module.exports = {
       }
     }, 10 * 1000); 
 
-    // Automated LOA schedule runner checking for start/expire entries every 10 minutes
+    // LOA schedule runner (Runs every 10 minutes)
     setInterval(async () => {
       try {
         console.log('[LOA Engine] Running automated schedule scan...');
@@ -47,5 +46,4 @@ module.exports = {
       }
     }, 10 * 60 * 1000);
   },
-};
 };
