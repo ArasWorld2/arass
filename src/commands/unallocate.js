@@ -3,6 +3,25 @@ const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('disc
 const Allocation = require('../models/Allocation');
 const { getRoleConfig, buildMainEmbed, buildButtons, ROLES } = require('../utils/embeds');
 
+// Map role keys to alternative schema property names if legacy fields exist in MongoDB
+const KEY_ALIASES = {
+  dc: ['dc', 'departureCoordinator', 'departure_coordinator', 'DC'],
+  mb: ['mb', 'managementBoard', 'management_board'],
+  cpt: ['cpt', 'captain', 'CPT'],
+  fo: ['fo', 'firstOfficer', 'first_officer', 'FO'],
+  stbyFd: ['stbyFd', 'standbyFlightDeck', 'stby_fd'],
+  purser: ['purser', 'Purser'],
+  cc: ['cc', 'cabinCrew', 'cabin_crew', 'CC'],
+  stbyCc: ['stbyCc', 'standbyCabinCrew', 'stby_cc'],
+  ts: ['ts', 'tarmacSupervisor', 'tarmac_supervisor'],
+  gc: ['gc', 'groundCrew', 'ground_crew'],
+  stbyGc: ['stbyGc', 'standbyGroundCrew', 'stby_gc'],
+  bcbd: ['bcbd', 'businessBagDrop', 'businessClassBagDrop'],
+  ecbd: ['ecbd', 'economyBagDrop', 'economyClassBagDrop'],
+  cs: ['cs', 'customerService', 'customer_service'],
+  gate: ['gate', 'gateAgent', 'gate_agent'],
+};
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('unallocate')
@@ -25,7 +44,6 @@ module.exports = {
     })
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
-  // 1. AUTOCOMPLETE: Fetches active flights directly from MongoDB
   async autocomplete(interaction) {
     try {
       const focusedValue = (interaction.options.getFocused() || '').trim().toUpperCase();
@@ -34,7 +52,6 @@ module.exports = {
         ? { 'flight.number': { $regex: focusedValue, $options: 'i' } } 
         : {};
 
-      // Search MongoDB for active flight allocations
       const allocations = await Allocation.find(query).sort({ createdAt: -1 }).limit(10).lean();
 
       if (!allocations || allocations.length === 0) {
@@ -49,18 +66,17 @@ module.exports = {
 
         return {
           name: `${flightNum} (${from} ➔ ${to} | ${date})`,
-          value: a.messageId // Pass messageId as the underlying value
+          value: a.messageId
         };
       });
 
       await interaction.respond(choices).catch(() => {});
     } catch (err) {
-      console.error('Autocomplete error in unallocate:', err);
+      console.error('[UNALLOCATE DEBUG] Autocomplete error:', err);
       await interaction.respond([]).catch(() => {});
     }
   },
 
-  // 2. EXECUTE: Operates directly on the MongoDB allocation record
   async execute(interaction) {
     if (!await checkRole(interaction)) return;
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -69,13 +85,12 @@ module.exports = {
     const user      = interaction.options.getUser('user');
     const rawRole   = interaction.options.getString('role');
 
-    // Key normalization: Ensures "alloc_dc" or "dc" cleanly maps to getRoleConfig("dc")
     const roleConfig = getRoleConfig(rawRole.replace(/^(alloc_|join_)/, ''));
     const roleKey    = roleConfig.key;
 
-    // Fetch record from MongoDB
     const allocation = await Allocation.findOne({ messageId });
     if (!allocation) {
+      console.error(`[UNALLOCATE DEBUG] ❌ Record not found in MongoDB for messageId: ${messageId}`);
       return interaction.editReply('❌ Allocation sheet not found in database.');
     }
 
@@ -83,42 +98,96 @@ module.exports = {
       return interaction.editReply('🔒 **Allocation Error:** This timetable schedule is currently locked. No modifications or unallocations are permitted.');
     }
 
-    // Ensure properties exist as arrays
-    if (!allocation[roleKey]) allocation[roleKey] = [];
+    // Get all potential alias keys for this role
+    const possibleKeys = KEY_ALIASES[roleKey] || [roleKey];
+    let matchedKey = null;
+    let isAllocated = false;
+
+    // Convert document to plain object for debug inspection
+    const rawDoc = allocation.toObject ? allocation.toObject() : allocation;
+
+    // Search through potential schema properties to find where the user ID is stored
+    for (const key of possibleKeys) {
+      const val = rawDoc[key];
+      if (val) {
+        if (Array.isArray(val) && val.includes(user.id)) {
+          matchedKey = key;
+          isAllocated = true;
+          break;
+        } else if (typeof val === 'string' && val === user.id) {
+          matchedKey = key;
+          isAllocated = true;
+          break;
+        }
+      }
+    }
+
+    // Check waiting queues
     if (!allocation.queues) allocation.queues = {};
-    if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
+    let matchedQueueKey = null;
+    let isInQueue = false;
 
-    const filled = allocation[roleKey];
-    const queue  = allocation.queues[roleKey];
+    for (const key of possibleKeys) {
+      const qVal = allocation.queues[key];
+      if (qVal && Array.isArray(qVal) && qVal.includes(user.id)) {
+        matchedQueueKey = key;
+        isInQueue = true;
+        break;
+      }
+    }
 
-    // Check 1: Remove from Active Role Slot
-    if (filled.includes(user.id)) {
-      allocation[roleKey] = filled.filter(id => id !== user.id);
+    // 🔴 DEBUG OUTPUT IF USER NOT FOUND
+    if (!isAllocated && !isInQueue) {
+      console.error('==================== [UNALLOCATE DEBUG ERROR] ====================');
+      console.error(`Target User ID:    ${user.id} (@${user.tag || user.username})`);
+      console.error(`Requested Role:    "${roleConfig.label}" (key: "${roleKey}")`);
+      console.error(`Keys Searched:     [${possibleKeys.join(', ')}]`);
+      console.error(`Message ID:        ${messageId}`);
+      console.error('--- Document Role Fields Dump ---');
+      possibleKeys.forEach(k => {
+        console.error(`  - doc['${k}']:`, JSON.stringify(rawDoc[k]));
+      });
+      console.error('--- Full Top-Level Document Keys ---');
+      console.error(Object.keys(rawDoc));
+      console.error('==================================================================');
+    }
 
-      // Handle linked roles if configured
-      if (roleConfig.linkedRole && allocation[roleConfig.linkedRole]) {
-        allocation[roleConfig.linkedRole] = allocation[roleConfig.linkedRole].filter(id => id !== user.id);
+    // 1. Remove from active slot
+    if (isAllocated && matchedKey) {
+      if (Array.isArray(allocation[matchedKey])) {
+        allocation[matchedKey] = allocation[matchedKey].filter(id => id !== user.id);
+      } else {
+        allocation[matchedKey] = [];
       }
 
-      // Auto-promote next candidate from waiting queue
-      let promotedUser = null;
-      if (queue.length > 0) {
-        const promotedId = queue.shift();
-        allocation[roleKey].push(promotedId);
-        allocation.queues[roleKey] = queue;
+      // Also ensure main roleKey array is updated
+      if (matchedKey !== roleKey && Array.isArray(allocation[roleKey])) {
+        allocation[roleKey] = allocation[roleKey].filter(id => id !== user.id);
+      }
 
-        if (roleConfig.linkedRole) {
-          allocation[roleConfig.linkedRole] = [promotedId];
+      // Promote next person from queue if available
+      const queueKey = matchedQueueKey || roleKey;
+      if (allocation.queues[queueKey] && allocation.queues[queueKey].length > 0) {
+        const promotedId = allocation.queues[queueKey].shift();
+
+        if (Array.isArray(allocation[roleKey])) {
+          allocation[roleKey].push(promotedId);
+        } else {
+          allocation[roleKey] = [promotedId];
         }
 
         try {
-          promotedUser = await interaction.client.users.fetch(promotedId);
+          const promotedUser = await interaction.client.users.fetch(promotedId);
+          await promotedUser.send(
+            `✈️ **LOT Polish Airlines Notice**\n\n` +
+            `You have been promoted from the waiting queue to **${roleConfig.label}** for flight **${allocation.flight?.number || 'Flight'}**.`
+          ).catch(() => {});
         } catch {}
       }
 
       await allocation.save();
 
-      // Live update main flight sheet embed message on Discord
+      // Refresh embed message
       try {
         const channel = await interaction.client.channels.fetch(allocation.channelId);
         const message = await channel.messages.fetch(messageId);
@@ -128,15 +197,6 @@ module.exports = {
         });
       } catch (err) {
         console.warn('Could not update flight sheet embed:', err.message);
-      }
-
-      if (promotedUser) {
-        try {
-          await promotedUser.send(
-            `✈️ **LOT Polish Airlines Notice**\n\n` +
-            `You have been promoted from the waiting queue to **${roleConfig.label}** for flight **${allocation.flight?.number || 'Flight'}**.`
-          );
-        } catch {}
       }
 
       await sendLog(interaction, {
@@ -151,9 +211,9 @@ module.exports = {
       return interaction.editReply(`✅ Removed <@${user.id}> from **${roleConfig.label}**.`);
     }
 
-    // Check 2: Remove from Waiting Queue
-    if (queue.includes(user.id)) {
-      allocation.queues[roleKey] = queue.filter(id => id !== user.id);
+    // 2. Remove from queue
+    if (isInQueue && matchedQueueKey) {
+      allocation.queues[matchedQueueKey] = allocation.queues[matchedQueueKey].filter(id => id !== user.id);
       await allocation.save();
 
       await sendLog(interaction, {
