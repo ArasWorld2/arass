@@ -1,25 +1,28 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 const ROLES = [
-  { key: 'dc', label: 'Departure Coordinator', autoFilled: false },
-  { key: 'mb', label: 'Management Board', autoFilled: false },
-  { key: 'cpt', label: 'Captain', autoFilled: false },
-  { key: 'fo', label: 'First Officer', autoFilled: false },
-  { key: 'stbyFd', label: 'Stand-by Flight Deck', autoFilled: false },
-  { key: 'purser', label: 'Purser', autoFilled: false },
-  { key: 'cc', label: 'Cabin Crew', autoFilled: false },
-  { key: 'stbyCc', label: 'Stand-by Cabin Crew', autoFilled: false },
-  { key: 'ts', label: 'Tarmac Supervisor', autoFilled: false },
-  { key: 'gc', label: 'Ground Crew', autoFilled: false },
-  { key: 'stbyGc', label: 'Stand-by Ground Crew', autoFilled: false },
-  { key: 'bcbd', label: 'Business Class Bag Drop', autoFilled: false },
-  { key: 'ecbd', label: 'Economy Class Bag Drop', autoFilled: false },
-  { key: 'cs', label: 'Customer Service', autoFilled: false },
-  { key: 'gate', label: 'Gate Agent', autoFilled: false },
+  { key: 'dc', label: 'Departure Coordinator', max: 1, autoFilled: false },
+  { key: 'mb', label: 'Management Board', max: 10, autoFilled: false },
+  { key: 'cpt', label: 'Captain', max: 1, autoFilled: false },
+  { key: 'fo', label: 'First Officer', max: 1, autoFilled: false },
+  { key: 'stbyFd', label: 'Stand-by Flight Deck', max: 10, autoFilled: false },
+  { key: 'purser', label: 'Purser', max: 1, autoFilled: false },
+  { key: 'cc', label: 'Cabin Crew', max: 3, autoFilled: false },
+  { key: 'stbyCc', label: 'Stand-by Cabin Crew', max: 10, autoFilled: false },
+  { key: 'ts', label: 'Tarmac Supervisor', max: 1, autoFilled: false },
+  { key: 'gc', label: 'Ground Crew', max: 3, autoFilled: false },
+  { key: 'stbyGc', label: 'Stand-by Ground Crew', max: 10, autoFilled: false },
+  { key: 'bcbd', label: 'Business Class Bag Drop', max: 1, autoFilled: false },
+  { key: 'ecbd', label: 'Economy Class Bag Drop', max: 3, autoFilled: false },
+  { key: 'cs', label: 'Customer Service', max: 2, autoFilled: false },
+  { key: 'gate', label: 'Gate Agent', max: 1, autoFilled: false },
 ];
 
+function getRoleConfig(key) {
+  return ROLES.find(r => r.key === key) || { key, label: key, max: 1 };
+}
+
 function buildMainEmbed(flight, allocations = {}) {
-  // Extract or default values for roles
   const dc = allocations.dc || [];
   const mb = allocations.mb || [];
   const cpt = allocations.cpt || [];
@@ -41,25 +44,25 @@ function buildMainEmbed(flight, allocations = {}) {
     `:Arrow6: This allocation list is for __${flight.number}__ to ${flight.to} on the **${flight.date}**.\n` +
     `:Arrow6: In order to allocate for this flight, please use the allocation channel corresponding to this flight.\n\n` +
     `:Dot: **Flight Management**\n` +
-    `:Arrow6:__Departure Coordinator (${dc.length}/1)__: ${dc.join(', ') || ''}\n` +
-    `:Arrow6:__Management Board__: ${mb.join(', ') || ''}\n\n` +
+    `:Arrow6:__Departure Coordinator (${dc.length}/1)__: ${dc.join(', ')}\n` +
+    `:Arrow6:__Management Board__: ${mb.join(', ')}\n\n` +
     `:Dot: **Flight Deck**\n` +
-    `:Arrow6:__Captain (${cpt.length}/1)__: ${cpt.join(', ') || ''}\n` +
-    `:Arrow6:__First Officer (${fo.length}/1)__: ${fo.join(', ') || ''}\n` +
-    `:Arrow6:__Stand-by Flight Deck__: ${stbyFd.join(', ') || ''}\n\n` +
+    `:Arrow6:__Captain (${cpt.length}/1)__: ${cpt.join(', ')}\n` +
+    `:Arrow6:__First Officer (${fo.length}/1)__: ${fo.join(', ')}\n` +
+    `:Arrow6:__Stand-by Flight Deck__: ${stbyFd.join(', ')}\n\n` +
     `:Dot: **Cabin Crew**\n` +
-    `:Arrow6:__Purser (${purser.length}/1)__: ${purser.join(', ') || ''}\n` +
-    `:Arrow6:__Cabin Crew (${cc.length}/3)__: ${cc.join(', ') || ''}\n` +
-    `:Arrow6:__Stand-by Cabin Crew__: ${stbyCc.join(', ') || ''}\n\n` +
+    `:Arrow6:__Purser (${purser.length}/1)__: ${purser.join(', ')}\n` +
+    `:Arrow6:__Cabin Crew (${cc.length}/3)__: ${cc.join(', ')}\n` +
+    `:Arrow6:__Stand-by Cabin Crew__: ${stbyCc.join(', ')}\n\n` +
     `:Dot: **Ground Crew**\n` +
-    `:Arrow6:__Tarmac Supervisor (${ts.length}/1)__: ${ts.join(', ') || ''}\n` +
-    `:Arrow6:__Ground Crew (${gc.length}/3)__: ${gc.join(', ') || ''}\n` +
-    `:Arrow6:__Stand-by Ground Crew__: ${stbyGc.join(', ') || ''}\n\n` +
+    `:Arrow6:__Tarmac Supervisor (${ts.length}/1)__: ${ts.join(', ')}\n` +
+    `:Arrow6:__Ground Crew (${gc.length}/3)__: ${gc.join(', ')}\n` +
+    `:Arrow6:__Stand-by Ground Crew__: ${stbyGc.join(', ')}\n\n` +
     `:Dot: **Airport Worker**\n` +
-    `:Arrow6: __Business Class Bag Drop (${bcbd.length}/1)__: ${bcbd.join(', ') || ''}\n` +
-    `:Arrow6:__Economy Class Bag Drop (${ecbd.length}/3)__: ${ecbd.join(', ') || ''}\n` +
-    `:Arrow6:__Customer Service (${cs.length}/2)__: ${cs.join(', ') || ''}\n` +
-    `:Arrow6:__Gate Agent (${gate.length}/1)*__: ${gate.join(', ') || ''}`;
+    `:Arrow6: __Business Class Bag Drop (${bcbd.length}/1)__: ${bcbd.join(', ')}\n` +
+    `:Arrow6:__Economy Class Bag Drop (${ecbd.length}/3)__: ${ecbd.join(', ')}\n` +
+    `:Arrow6:__Customer Service (${cs.length}/2)__: ${cs.join(', ')}\n` +
+    `:Arrow6:__Gate Agent (${gate.length}/1)*__: ${gate.join(', ')}`;
 
   return new EmbedBuilder()
     .setColor('#0C2340') // LOT Navy Blue
@@ -95,6 +98,7 @@ function buildButtons() {
 
 module.exports = {
   ROLES,
+  getRoleConfig,
   buildMainEmbed,
   buildButtons,
 };
