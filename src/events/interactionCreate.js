@@ -3,6 +3,28 @@ const Allocation = require('../models/Allocation');
 const Loa = require('../models/Loa');
 const embeds = require('../utils/embeds'); 
 
+// Schema key mapping covering both short keys and full MongoDB property names
+const KEY_ALIASES = {
+    dc: ['dispatchCoordinator', 'dc', 'departureCoordinator', 'departure_coordinator', 'DC'],
+    mb: ['dispatchSupervisor', 'flightSupervisor', 'mb', 'managementBoard', 'management_board'],
+    cpt: ['captain', 'cpt', 'CPT'],
+    fo: ['firstOfficer', 'fo', 'FO'],
+    stbyFd: ['stbyFd', 'standbyFlightDeck', 'stby_fd'],
+    purser: ['purser', 'Purser'],
+    cc: ['cabinCrew', 'cc', 'cabin_crew', 'CC'],
+    stbyCc: ['stbyCc', 'standbyCabinCrew', 'stby_cc'],
+    ts: ['tarmacSupervisor', 'ts', 'tarmac_supervisor'],
+    gc: ['groundHandling', 'gc', 'groundCrew', 'ground_crew'],
+    stbyGc: ['stbyGc', 'standbyGroundCrew', 'stby_gc'],
+    bcbd: ['bagDropAgent', 'bcbd', 'businessBagDrop', 'businessClassBagDrop'],
+    ecbd: ['bagDropAgent', 'ecbd', 'economyBagDrop', 'economyClassBagDrop'],
+    cs: ['cs', 'customerService', 'customer_service'],
+    gate: ['gateAgent', 'gate', 'gate_agent'],
+    lounge: ['loungeAttendant', 'lounge']
+};
+
+const ALL_POSSIBLE_KEYS = Array.from(new Set(Object.values(KEY_ALIASES).flat()));
+
 module.exports = {
     name: Events.InteractionCreate,
     async execute(interaction) {
@@ -39,7 +61,7 @@ module.exports = {
                     });
                 }
 
-                // Handle Leave Shift / Unallocate option
+                // --- A. HANDLE LEAVE SHIFT / UNALLOCATE ---
                 if (rawValue === 'alloc_unallocate' || rawValue === 'unallocate') {
                     if (allocation.isLocked === true) {
                         return await interaction.reply({
@@ -51,32 +73,35 @@ module.exports = {
                     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
                     let removedFromAny = false;
-                    const rolesList = embeds.ROLES || [];
 
-                    // Remove user from all active slots and promote queued members if needed
-                    for (const r of rolesList) {
-                        const key = r.key;
-                        if (Array.isArray(allocation[key]) && allocation[key].includes(userId)) {
-                            allocation[key] = allocation[key].filter(id => id !== userId);
-                            removedFromAny = true;
-
-                            // Promote next user in queue
-                            if (allocation.queues && Array.isArray(allocation.queues[key]) && allocation.queues[key].length > 0) {
-                                const nextUserId = allocation.queues[key].shift();
-                                allocation[key].push(nextUserId);
-
-                                const promotedUser = await interaction.client.users.fetch(nextUserId).catch(() => null);
-                                if (promotedUser) {
-                                    await sendDM(promotedUser, `You have been allocated as **${r.label}** for **${allocation.flight?.number || 'Flight'}**.`);
-                                }
+                    // 1. Check & wipe user across all schema key aliases
+                    ALL_POSSIBLE_KEYS.forEach(key => {
+                        if (allocation[key]) {
+                            if (Array.isArray(allocation[key]) && allocation[key].includes(userId)) {
+                                allocation[key] = allocation[key].filter(id => id !== userId);
+                                allocation.markModified(key);
+                                removedFromAny = true;
+                            } else if (allocation[key] === userId) {
+                                allocation[key] = [];
+                                allocation.markModified(key);
+                                removedFromAny = true;
                             }
                         }
+                    });
 
-                        // Remove from queues
-                        if (allocation.queues && Array.isArray(allocation.queues[key]) && allocation.queues[key].includes(userId)) {
-                            allocation.queues[key] = allocation.queues[key].filter(id => id !== userId);
-                            removedFromAny = true;
-                        }
+                    // 2. Remove user from all queues & promote next inline
+                    if (allocation.queues) {
+                        ALL_POSSIBLE_KEYS.forEach(key => {
+                            if (Array.isArray(allocation.queues[key]) && allocation.queues[key].includes(userId)) {
+                                allocation.queues[key] = allocation.queues[key].filter(id => id !== userId);
+                                allocation.markModified('queues');
+                                removedFromAny = true;
+                            }
+                        });
+                    }
+
+                    if (!removedFromAny) {
+                        return await interaction.editReply('⚠️ You were not allocated to any roles on this flight.');
                     }
 
                     await allocation.save();
@@ -96,58 +121,55 @@ module.exports = {
                         messageId
                     });
 
-                    return await interaction.editReply(removedFromAny ? '✅ You have left your shift allocations.' : '⚠️ You were not allocated to any roles on this flight.');
+                    return await interaction.editReply('✅ You have left your shift allocations.');
                 }
 
-                // Parse key from alloc_cpt or join_cpt -> cpt
-                const roleKey = rawValue.replace(/^(alloc_|join_)/, ''); 
-
-                if (!allocation[roleKey]) allocation[roleKey] = [];
-                if (!allocation.queues) allocation.queues = {};
-                if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
-
-                let roleLabel = roleKey;
+                // --- B. TOGGLE SPECIFIC ROLE ---
+                const rawRoleKey = rawValue.replace(/^(alloc_|join_)/, ''); 
+                
+                let roleLabel = rawRoleKey;
                 let maxSlots = 1;
+                let roleKey = rawRoleKey;
 
                 if (embeds && typeof embeds.getRoleConfig === 'function') {
-                    const roleConfig = embeds.getRoleConfig(roleKey);
+                    const roleConfig = embeds.getRoleConfig(rawRoleKey);
                     if (roleConfig) {
+                        roleKey = roleConfig.key;
                         roleLabel = roleConfig.label || roleKey;
                         maxSlots = roleConfig.max || 1;
                     }
-                } else if (embeds && embeds.ROLES) {
-                    const foundRole = embeds.ROLES.find(r => r.key === roleKey);
-                    if (foundRole) {
-                        roleLabel = foundRole.label || roleKey;
-                        maxSlots = foundRole.max || 1;
+                }
+
+                const possibleKeys = KEY_ALIASES[roleKey] || [roleKey];
+                
+                // Ensure array structures exist
+                if (!allocation[roleKey]) allocation[roleKey] = [];
+                if (!Array.isArray(allocation[roleKey])) allocation[roleKey] = [];
+                if (!allocation.queues) allocation.queues = {};
+                if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
+
+                // Check allocation & queue across all key variants
+                let isAllocated = false;
+                let matchedKey = roleKey;
+                for (const k of possibleKeys) {
+                    if (allocation[k]) {
+                        if (Array.isArray(allocation[k]) && allocation[k].includes(userId)) {
+                            isAllocated = true;
+                            matchedKey = k;
+                            break;
+                        } else if (allocation[k] === userId) {
+                            isAllocated = true;
+                            matchedKey = k;
+                            break;
+                        }
                     }
                 }
 
-                const isAllocated = allocation[roleKey].includes(userId);
                 const isInQueue = allocation.queues[roleKey].includes(userId);
                 const flightNum = allocation.flight?.number || 'Unknown';
 
                 if (allocation.isLocked === true) {
-                    let holdsAnyPosition = false;
-                    const docData = allocation.toObject();
-
-                    for (const key in docData) {
-                        if (Array.isArray(docData[key]) && docData[key].includes(userId)) {
-                            holdsAnyPosition = true;
-                            break;
-                        }
-                    }
-
-                    if (!holdsAnyPosition && docData.queues) {
-                        for (const queueKey in docData.queues) {
-                            if (Array.isArray(docData.queues[queueKey]) && docData.queues[queueKey].includes(userId)) {
-                                holdsAnyPosition = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (holdsAnyPosition) {
+                    if (isAllocated || isInQueue) {
                         await sendLog(interaction, {
                             action: '🔒 Allocation Blocked (Locked Sheet)',
                             user: interaction.user,
@@ -167,18 +189,30 @@ module.exports = {
 
                 if (isAllocated || isInQueue) {
                     if (isAllocated) {
-                        allocation[roleKey] = allocation[roleKey].filter(id => id !== userId);
-                        
+                        // Remove from all property variants
+                        possibleKeys.forEach(k => {
+                            if (Array.isArray(allocation[k])) {
+                                allocation[k] = allocation[k].filter(id => id !== userId);
+                                allocation.markModified(k);
+                            } else if (allocation[k] === userId) {
+                                allocation[k] = [];
+                                allocation.markModified(k);
+                            }
+                        });
+
+                        // Promote candidate from queue if available
                         let promotedUser = null;
                         if (allocation.queues[roleKey].length > 0) {
                             const nextUserId = allocation.queues[roleKey].shift();
+                            allocation.markModified('queues');
                             allocation[roleKey].push(nextUserId);
-                            
+                            allocation.markModified(roleKey);
+
                             try {
                                 promotedUser = await interaction.client.users.fetch(nextUserId);
                             } catch {}
                         }
-                        
+
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
                         await sendDM(interaction.user, `You have unallocated from **${roleLabel}** for **${flightNum}**.`);
@@ -197,7 +231,8 @@ module.exports = {
 
                     } else if (isInQueue) {
                         allocation.queues[roleKey] = allocation.queues[roleKey].filter(id => id !== userId);
-                        
+                        allocation.markModified('queues');
+
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from the queue for **${roleLabel}**.`);
                         await sendDM(interaction.user, `You have left the queue for **${roleLabel}** on **${flightNum}**.`);
@@ -214,6 +249,8 @@ module.exports = {
                 } else {
                     if (allocation[roleKey].length < maxSlots) {
                         allocation[roleKey].push(userId);
+                        allocation.markModified(roleKey);
+
                         await allocation.save();
                         await interaction.editReply(`✅ Allocated as **${roleLabel}**!`);
                         await sendDM(interaction.user, `You have been allocated as **${roleLabel}** for **${flightNum}**.`);
@@ -229,6 +266,8 @@ module.exports = {
                     } else {
                         if (!allocation.queues[roleKey].includes(userId)) {
                             allocation.queues[roleKey].push(userId);
+                            allocation.markModified('queues');
+
                             await allocation.save();
                             await interaction.editReply(`⏳ Slot full! Added to the queue for **${roleLabel}**.`);
                             await sendDM(interaction.user, `The role **${roleLabel}** is full. You have been added to the queue.`);
@@ -413,6 +452,8 @@ module.exports = {
                         }
                     }
 
+                    allocation.markModified('cptPool');
+                    allocation.markModified('foPool');
                     await allocation.save();
 
                     const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
