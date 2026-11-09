@@ -4,7 +4,9 @@ const Allocation = require('../models/Allocation');
 // Custom LOT Emojis
 const EMOJIS = {
   TAIL: '<:LOTTail:1520114549490057226>',
-  ARROW: '<:LOTSArrow:1520114515318935584>',
+  ARROW1: '<:LOTSArrow:1520114515318935584>',
+  ARROW2: '<:LOTSArrow:1520114515318935584>',
+  MANAGER: '<:LOTSManager:1520114571124150373>',
   CLICK: '<:leftclick:1520114571124150373>'
 };
 
@@ -20,12 +22,22 @@ module.exports = {
     )
     .addStringOption(o =>
       o.setName('aircraft')
-        .setDescription('Aircraft name & registration (e.g. B737-800 SP-LVD)')
+        .setDescription('Aircraft name & registration (e.g. Boeing 737-800 SP-LVD)')
         .setRequired(false)
     )
     .addStringOption(o =>
       o.setName('gate')
         .setDescription('Gate number (Default: Revealed U T H)')
+        .setRequired(false)
+    )
+    .addStringOption(o =>
+      o.setName('server_opens')
+        .setDescription('Server opening time / timestamp (Default: U T H)')
+        .setRequired(false)
+    )
+    .addStringOption(o =>
+      o.setName('boarding_begins')
+        .setDescription('Boarding time / timestamp (Default: U T H)')
         .setRequired(false)
     )
     .addStringOption(o =>
@@ -36,6 +48,16 @@ module.exports = {
     .addBooleanOption(o =>
       o.setName('schengen')
         .setDescription('True to include Schengen border notice')
+        .setRequired(false)
+    )
+    .addStringOption(o =>
+      o.setName('department')
+        .setDescription('Department name for signature (Default: Flight Operations Department)')
+        .setRequired(false)
+    )
+    .addChannelOption(o =>
+      o.setName('channel')
+        .setDescription('Target channel to post announcement (Defaults to DEPARTURES_CHANNEL_ID)')
         .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
@@ -68,35 +90,45 @@ module.exports = {
 
       const flight = allocation?.flight || {};
       const flightNum = flight.number || 'LO 000';
-      const dest = flight.to || 'Destination';
+      const dest = flight.to || '__Destination__';
+
+      // Custom parameters or fallback defaults
       const aircraft = interaction.options.getString('aircraft') || 'Boeing 737-800 SP-LVD';
       const gate = interaction.options.getString('gate') || 'Revealed U T H';
-      const desks = interaction.options.getString('desks') || 'C01-C05';
+      const serverOpens = interaction.options.getString('server_opens') || '__U T H__';
+      const boardingBegins = interaction.options.getString('boarding_begins') || '__U T H__';
+      const desks = interaction.options.getString('desks') || 'X-Y';
       const isSchengen = interaction.options.getBoolean('schengen') ?? false;
+      const department = interaction.options.getString('department') || 'Flight Operations Department';
 
+      // Build announcement with exact formatting requested
       let announcementText = 
-        `${EMOJIS.TAIL} **Day of Travel Information**\n\n` +
+        `${EMOJIS.TAIL} **Day of Travel Information**\n` +
         `**${flightNum} to ${dest}**\n\n` +
-        `✈️ **Aircraft**: ${aircraft}\n` +
-        `📍 **Gate Number**: ${gate}\n\n` +
-        `${EMOJIS.ARROW} Server opens **U T H**. Boarding begins **U T H**.\n`;
+        `${EMOJIS.ARROW2}  **Aircraft**: ${aircraft}\n` +
+        `${EMOJIS.ARROW2}  **Gate Number**: ${gate}\n\n` +
+        `${EMOJIS.ARROW1}Server opens ${serverOpens}. Boarding begins ${boardingBegins}.\n`;
 
       if (isSchengen) {
-        announcementText += `${EMOJIS.ARROW} This flight **crosses** the external borders of the Schengen area. Please ensure to have your Passport or National ID Card.\n`;
+        announcementText += `${EMOJIS.ARROW1}This flight **crosses** the external borders of the Schengen area. Please ensure to have your Passport or National ID Card.\n`;
       }
 
       announcementText += 
-        `${EMOJIS.ARROW} In order to __drop your bags__, please go to check-in at desks **${desks}**.\n` +
-        `${EMOJIS.ARROW} You may be refused boarding if you do not have the appropriate travel documents and/or are late.\n\n` +
+        `${EMOJIS.ARROW1}In order to __drop your bags__, please go to check-in at desks **${desks}**.\n` +
+        `${EMOJIS.ARROW1}You may be refused boarding if you do not have the appropriate travel documents and/or are late.\n\n` +
         `__Z wyrazami szacunku,__\n` +
-        `👤 **${interaction.user.username}**\n` +
-        `*Flight Operations Department*`;
+        `${EMOJIS.MANAGER} **${interaction.user.username}**\n` +
+        `*${department}*`;
 
-      // Option to post directly to channel or retrieve pre-filled raw markdown
-      const channel = interaction.channel;
-      await channel.send({ content: announcementText });
+      // Target channel resolution
+      const targetChannel = interaction.options.getChannel('channel') || 
+                            (process.env.DEPARTURES_CHANNEL_ID ? await interaction.client.channels.fetch(process.env.DEPARTURES_CHANNEL_ID).catch(() => null) : null) || 
+                            interaction.channel;
 
-      await interaction.editReply(`✅ **Day of Travel Information** announcement pre-filled and sent to <#${channel.id}>!`);
+      const sentMsg = await targetChannel.send({ content: announcementText });
+
+      await interaction.editReply(`✅ **Day of Travel Information** announcement successfully posted to <#${targetChannel.id}>!`);
+
     } catch (error) {
       console.error('Error executing /dayoftravel:', error);
       await interaction.editReply(`❌ Failed to send announcement: \`${error.message}\``);
