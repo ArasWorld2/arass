@@ -3,23 +3,24 @@ const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('disc
 const Allocation = require('../models/Allocation');
 const { getRoleConfig, buildMainEmbed, buildButtons, ROLES } = require('../utils/embeds');
 
-// Map role keys to alternative schema property names if legacy fields exist in MongoDB
+// Complete mapping of short keys to exact MongoDB schema field names
 const KEY_ALIASES = {
-  dc: ['dc', 'departureCoordinator', 'departure_coordinator', 'DC'],
-  mb: ['mb', 'managementBoard', 'management_board'],
-  cpt: ['cpt', 'captain', 'CPT'],
-  fo: ['fo', 'firstOfficer', 'first_officer', 'FO'],
+  dc: ['dispatchCoordinator', 'dc', 'departureCoordinator', 'departure_coordinator', 'DC'],
+  mb: ['dispatchSupervisor', 'flightSupervisor', 'mb', 'managementBoard', 'management_board'],
+  cpt: ['captain', 'cpt', 'CPT'],
+  fo: ['firstOfficer', 'fo', 'FO'],
   stbyFd: ['stbyFd', 'standbyFlightDeck', 'stby_fd'],
   purser: ['purser', 'Purser'],
-  cc: ['cc', 'cabinCrew', 'cabin_crew', 'CC'],
+  cc: ['cabinCrew', 'cc', 'cabin_crew', 'CC'],
   stbyCc: ['stbyCc', 'standbyCabinCrew', 'stby_cc'],
-  ts: ['ts', 'tarmacSupervisor', 'tarmac_supervisor'],
-  gc: ['gc', 'groundCrew', 'ground_crew'],
+  ts: ['tarmacSupervisor', 'ts', 'tarmac_supervisor'],
+  gc: ['groundHandling', 'gc', 'groundCrew', 'ground_crew'],
   stbyGc: ['stbyGc', 'standbyGroundCrew', 'stby_gc'],
-  bcbd: ['bcbd', 'businessBagDrop', 'businessClassBagDrop'],
-  ecbd: ['ecbd', 'economyBagDrop', 'economyClassBagDrop'],
+  bcbd: ['bagDropAgent', 'bcbd', 'businessBagDrop', 'businessClassBagDrop'],
+  ecbd: ['bagDropAgent', 'ecbd', 'economyBagDrop', 'economyClassBagDrop'],
   cs: ['cs', 'customerService', 'customer_service'],
-  gate: ['gate', 'gateAgent', 'gate_agent'],
+  gate: ['gateAgent', 'gate', 'gate_agent'],
+  lounge: ['loungeAttendant', 'lounge']
 };
 
 module.exports = {
@@ -72,7 +73,7 @@ module.exports = {
 
       await interaction.respond(choices).catch(() => {});
     } catch (err) {
-      console.error('[UNALLOCATE DEBUG] Autocomplete error:', err);
+      console.error('Autocomplete error in unallocate:', err);
       await interaction.respond([]).catch(() => {});
     }
   },
@@ -90,7 +91,6 @@ module.exports = {
 
     const allocation = await Allocation.findOne({ messageId });
     if (!allocation) {
-      console.error(`[UNALLOCATE DEBUG] ❌ Record not found in MongoDB for messageId: ${messageId}`);
       return interaction.editReply('❌ Allocation sheet not found in database.');
     }
 
@@ -98,15 +98,13 @@ module.exports = {
       return interaction.editReply('🔒 **Allocation Error:** This timetable schedule is currently locked. No modifications or unallocations are permitted.');
     }
 
-    // Get all potential alias keys for this role
     const possibleKeys = KEY_ALIASES[roleKey] || [roleKey];
     let matchedKey = null;
     let isAllocated = false;
 
-    // Convert document to plain object for debug inspection
     const rawDoc = allocation.toObject ? allocation.toObject() : allocation;
 
-    // Search through potential schema properties to find where the user ID is stored
+    // Search through schema fields
     for (const key of possibleKeys) {
       const val = rawDoc[key];
       if (val) {
@@ -122,7 +120,7 @@ module.exports = {
       }
     }
 
-    // Check waiting queues
+    // Search queues
     if (!allocation.queues) allocation.queues = {};
     let matchedQueueKey = null;
     let isInQueue = false;
@@ -136,22 +134,6 @@ module.exports = {
       }
     }
 
-    // 🔴 DEBUG OUTPUT IF USER NOT FOUND
-    if (!isAllocated && !isInQueue) {
-      console.error('==================== [UNALLOCATE DEBUG ERROR] ====================');
-      console.error(`Target User ID:    ${user.id} (@${user.tag || user.username})`);
-      console.error(`Requested Role:    "${roleConfig.label}" (key: "${roleKey}")`);
-      console.error(`Keys Searched:     [${possibleKeys.join(', ')}]`);
-      console.error(`Message ID:        ${messageId}`);
-      console.error('--- Document Role Fields Dump ---');
-      possibleKeys.forEach(k => {
-        console.error(`  - doc['${k}']:`, JSON.stringify(rawDoc[k]));
-      });
-      console.error('--- Full Top-Level Document Keys ---');
-      console.error(Object.keys(rawDoc));
-      console.error('==================================================================');
-    }
-
     // 1. Remove from active slot
     if (isAllocated && matchedKey) {
       if (Array.isArray(allocation[matchedKey])) {
@@ -160,20 +142,22 @@ module.exports = {
         allocation[matchedKey] = [];
       }
 
-      // Also ensure main roleKey array is updated
-      if (matchedKey !== roleKey && Array.isArray(allocation[roleKey])) {
-        allocation[roleKey] = allocation[roleKey].filter(id => id !== user.id);
-      }
+      // Keep alternative keys in sync
+      possibleKeys.forEach(k => {
+        if (Array.isArray(allocation[k])) {
+          allocation[k] = allocation[k].filter(id => id !== user.id);
+        }
+      });
 
-      // Promote next person from queue if available
+      // Promote from queue if present
       const queueKey = matchedQueueKey || roleKey;
       if (allocation.queues[queueKey] && allocation.queues[queueKey].length > 0) {
         const promotedId = allocation.queues[queueKey].shift();
 
-        if (Array.isArray(allocation[roleKey])) {
-          allocation[roleKey].push(promotedId);
+        if (Array.isArray(allocation[matchedKey])) {
+          allocation[matchedKey].push(promotedId);
         } else {
-          allocation[roleKey] = [promotedId];
+          allocation[matchedKey] = [promotedId];
         }
 
         try {
@@ -187,7 +171,7 @@ module.exports = {
 
       await allocation.save();
 
-      // Refresh embed message
+      // Update Discord embed
       try {
         const channel = await interaction.client.channels.fetch(allocation.channelId);
         const message = await channel.messages.fetch(messageId);
