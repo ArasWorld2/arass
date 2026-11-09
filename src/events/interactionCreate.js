@@ -23,7 +23,6 @@ const KEY_ALIASES = {
     lounge: ['loungeAttendant', 'lounge']
 };
 
-// Flattened array of all possible MongoDB field names
 const ALL_SCHEMA_KEYS = Array.from(new Set(Object.values(KEY_ALIASES).flat()));
 
 module.exports = {
@@ -73,27 +72,44 @@ module.exports = {
                         });
                     }
 
-                    // --- DEBUG LOGGING ---
-                    const rawDoc = allocation.toObject ? allocation.toObject() : allocation;
-                    console.log('=== [LEAVE SHIFT DEBUG LOG] ===');
+                    // ==================== [DEEP DEBUG LOG] ====================
+                    console.log('=== [LEAVE SHIFT DEEP DEBUG LOG] ===');
                     console.log('Target User ID:', userId);
-                    console.log('Message ID:', messageId);
-                    console.log('Document Keys Present:', Object.keys(rawDoc));
-                    for (const k of Object.keys(rawDoc)) {
-                        const val = rawDoc[k];
-                        if (Array.isArray(val) && val.length > 0) {
-                            console.log(`Array Field [${k}]:`, val);
-                        } else if (typeof val === 'string' && val === userId) {
-                            console.log(`String Match Field [${k}]:`, val);
+
+                    const rawObject = allocation.toObject ? allocation.toObject() : allocation;
+                    console.log('FULL MONGO DOCUMENT JSON:');
+                    console.log(JSON.stringify(rawObject, null, 2));
+
+                    function deepSearchUser(obj, path = '') {
+                        for (const key in obj) {
+                            const currentPath = path ? `${path}.${key}` : key;
+                            const value = obj[key];
+
+                            if (value === userId || (typeof value === 'string' && value.includes(userId))) {
+                                console.log(`FOUND USER ID AT PATH: "${currentPath}" -> Value:`, value);
+                            } else if (Array.isArray(value)) {
+                                value.forEach((item, index) => {
+                                    if (item === userId || (typeof item === 'string' && item.includes(userId)) || (item && item._id === userId)) {
+                                        console.log(`FOUND USER ID AT PATH: "${currentPath}[${index}]" -> Item:`, item);
+                                    } else if (typeof item === 'object' && item !== null) {
+                                        deepSearchUser(item, `${currentPath}[${index}]`);
+                                    }
+                                });
+                            } else if (typeof value === 'object' && value !== null) {
+                                deepSearchUser(value, currentPath);
+                            }
                         }
                     }
-                    console.log('=================================');
+
+                    deepSearchUser(rawObject);
+                    console.log('==================================================');
+                    // ==========================================================
 
                     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
                     let removedFromAny = false;
 
-                    // 1. Wipe user across ALL schema property fields (arrays and strings)
+                    // 1. Wipe user across ALL mapped schema property fields (arrays and strings)
                     ALL_SCHEMA_KEYS.forEach(key => {
                         if (allocation[key] !== undefined && allocation[key] !== null) {
                             if (Array.isArray(allocation[key])) {
@@ -110,9 +126,9 @@ module.exports = {
                         }
                     });
 
-                    // 2. Also dynamic sweep through top-level document properties in case field names vary
-                    for (const k of Object.keys(rawDoc)) {
-                        if (k === '_id' || k === '__v' || k === 'messageId' || k === 'channelId') continue;
+                    // 2. Dynamic top-level document property sweep
+                    for (const k of Object.keys(rawObject)) {
+                        if (['_id', '__v', 'messageId', 'channelId', 'flight', 'createdAt', 'updatedAt'].includes(k)) continue;
                         if (Array.isArray(allocation[k]) && allocation[k].map(id => id.toString()).includes(userId)) {
                             allocation[k] = allocation[k].filter(id => id.toString() !== userId);
                             allocation.markModified(k);
@@ -120,7 +136,7 @@ module.exports = {
                         }
                     }
 
-                    // 3. Wipe user from all queues
+                    // 3. Queue cleanup
                     if (allocation.queues) {
                         const queueKeys = Object.keys(allocation.queues.toObject ? allocation.queues.toObject() : allocation.queues);
                         queueKeys.forEach(key => {
@@ -157,7 +173,7 @@ module.exports = {
                 }
 
                 // ------------------------------------------
-                // B. TOGGLE SPECIFIC ROLE (alloc_cpt, alloc_gate, etc.)
+                // B. TOGGLE SPECIFIC ROLE
                 // ------------------------------------------
                 const rawRoleKey = rawValue.replace(/^(alloc_|join_)/, ''); 
                 
@@ -176,13 +192,11 @@ module.exports = {
 
                 const possibleKeys = KEY_ALIASES[roleKey] || [roleKey];
                 
-                // Ensure property arrays exist
                 if (!allocation[roleKey]) allocation[roleKey] = [];
                 if (!Array.isArray(allocation[roleKey])) allocation[roleKey] = [];
                 if (!allocation.queues) allocation.queues = {};
                 if (!allocation.queues[roleKey]) allocation.queues[roleKey] = [];
 
-                // Check allocation status across aliases
                 let isAllocated = false;
                 let matchedKey = roleKey;
                 for (const k of possibleKeys) {
@@ -223,7 +237,6 @@ module.exports = {
 
                 if (isAllocated || isInQueue) {
                     if (isAllocated) {
-                        // De-allocate user across alias keys
                         possibleKeys.forEach(k => {
                             if (Array.isArray(allocation[k])) {
                                 allocation[k] = allocation[k].filter(id => id.toString() !== userId);
@@ -234,7 +247,6 @@ module.exports = {
                             }
                         });
 
-                        // Promote candidate inline from waiting queue if populated
                         let promotedUser = null;
                         if (allocation.queues[roleKey] && allocation.queues[roleKey].length > 0) {
                             const nextUserId = allocation.queues[roleKey].shift();
