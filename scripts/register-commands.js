@@ -36,7 +36,6 @@ let skippedCount = 0;
 for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     try {
-        // Clear module cache to force clean imports during debug runs
         delete require.cache[require.resolve(filePath)];
         const command = require(filePath);
 
@@ -66,7 +65,7 @@ if (!token) {
     process.exit(1);
 }
 
-// Extract the Client ID directly from the Discord Token structure
+// Extract Client ID directly from bot token
 const clientId = Buffer.from(token.split('.')[0], 'base64').toString('utf-8');
 const guildId = process.env.PERSONNEL_GUILD_ID;
 
@@ -103,3 +102,16 @@ const rest = new REST({ version: '10' }).setToken(token);
     } catch (error) {
         console.error("\n❌ Failed to deploy commands:");
         console.error(`Status Code: ${error.status || 'N/A'}`);
+        console.error(`Message: ${error.message}`);
+
+        if (error.rawError) {
+            console.error('Raw Discord Error Payload:');
+            console.dir(error.rawError, { depth: null, colors: true });
+        }
+
+        if (isDebug && error.stack) {
+            console.error('\nStack Trace:');
+            console.error(error.stack);
+        }
+    }
+})();
