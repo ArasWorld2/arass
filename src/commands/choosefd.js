@@ -74,14 +74,14 @@ module.exports = {
     if (cptPool.length > 0) {
       const randomIndex = Math.floor(Math.random() * cptPool.length);
       selectedCpt = cptPool[randomIndex];
-      allocation.captain = [selectedCpt]; // Direct allocation
+      allocation.cpt = [selectedCpt]; // Fixed: matches embeds.js key 'cpt'
     }
 
     // Pick random First Officer if available
     if (foPool.length > 0) {
       const randomIndex = Math.floor(Math.random() * foPool.length);
       selectedFo = foPool[randomIndex];
-      allocation.firstOfficer = [selectedFo]; // Direct allocation
+      allocation.fo = [selectedFo]; // Fixed: matches embeds.js key 'fo'
     }
 
     // Clear candidate pools
@@ -108,7 +108,7 @@ module.exports = {
       try {
         const cptUser = await interaction.client.users.fetch(selectedCpt);
         await cptUser.send(
-          `✈️ **Wizz Air Flight Selection Notice**\n\n` +
+          `✈️ **LOT Polish Airlines Flight Selection Notice**\n\n` +
           `Congratulations! You have been randomly selected as **Captain (CPT)** for flight **${flightNum}**.\n` +
           `Please check the flight channel <#${allocation.channelId}> for full briefing details and duty times.`
         );
@@ -122,7 +122,7 @@ module.exports = {
       try {
         const foUser = await interaction.client.users.fetch(selectedFo);
         await foUser.send(
-          `✈️ **Wizz Air Flight Selection Notice**\n\n` +
+          `✈️ **LOT Polish Airlines Flight Selection Notice**\n\n` +
           `Congratulations! You have been randomly selected as **First Officer (FO)** for flight **${flightNum}**.\n` +
           `Please check the flight channel <#${allocation.channelId}> for full briefing details and duty times.`
         );
