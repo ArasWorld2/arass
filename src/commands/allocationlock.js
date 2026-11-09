@@ -13,7 +13,7 @@ const EMOJIS = {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('allocation-lock')
-        .setDescription('Admin: Lock or unlock allocation changes for a specific flight sheet')
+        .setDescription('Admin: Lock or unlock allocation changes for a specific flight sheet in MongoDB')
         .addStringOption(option => 
             option.setName('flight_number')
                 .setDescription('Select or search for an active flight from MongoDB')
@@ -27,6 +27,7 @@ module.exports = {
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
+    // Dynamic autocomplete fetch directly from MongoDB
     async autocomplete(interaction) {
         try {
             const focusedValue = (interaction.options.getFocused() || '').trim().toUpperCase();
@@ -34,6 +35,7 @@ module.exports = {
                 ? { 'flight.number': { $regex: focusedValue, $options: 'i' } } 
                 : {};
 
+            // Fetch top 10 matching flight allocations from MongoDB
             const allocations = await Allocation.find(query).sort({ createdAt: -1 }).limit(10).lean();
             if (!allocations || allocations.length === 0) return await interaction.respond([]).catch(() => {});
 
@@ -50,7 +52,7 @@ module.exports = {
     },
 
     async execute(interaction) {
-        if (!await checkRole(interaction)) return;
+        if (typeof checkRole === 'function' && !await checkRole(interaction)) return;
         
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
@@ -58,20 +60,20 @@ module.exports = {
             const messageId = interaction.options.getString('flight_number');
             const isLocked = interaction.options.getBoolean('locked');
 
-            // Find the specific flight document in MongoDB using its message ID
+            // 1. Fetch flight document directly from MongoDB
             const allocation = await Allocation.findOne({ messageId });
 
             if (!allocation) {
-                return await interaction.editReply('❌ No flight allocation found matching that Message ID.');
+                return await interaction.editReply('❌ No flight allocation document found in MongoDB matching that sheet.');
             }
 
-            // Set the lock status flag
+            // 2. Update and persist lock state in MongoDB
             allocation.isLocked = isLocked;
             await allocation.save();
 
             const flightNum = allocation.flight?.number || 'Flight';
 
-            // Refresh main Discord sheet embed in the channel
+            // 3. Re-render the active Discord message sheet with synced MongoDB state
             try {
                 const channel = await interaction.client.channels.fetch(allocation.channelId);
                 const message = await channel.messages.fetch(messageId);
@@ -83,29 +85,31 @@ module.exports = {
                     });
                 }
             } catch (err) {
-                console.warn('Could not edit flight sheet embed:', err.message);
+                console.warn('Could not re-render flight sheet message embed:', err.message);
             }
 
+            // 4. Send LOT-themed confirmation embed
             const statusEmbed = new EmbedBuilder()
                 .setColor('#0C2340') // LOT Navy Blue
                 .setTitle(`${EMOJIS.TAIL} **LOT Polish Airlines • Timetable Security**`)
                 .setDescription(
                     `${EMOJIS.ARROW} **Flight:** \`${flightNum}\`\n` +
                     `${EMOJIS.ARROW} **Status:** ${isLocked ? '🔒 **Locked** (Allocations Restricted)' : '🔓 **Unlocked** (Allocations Open)'}\n\n` +
-                    `${EMOJIS.HEART} *The allocation list has been successfully ${isLocked ? 'locked' : 'unlocked'}.*`
+                    `${EMOJIS.HEART} *MongoDB database record successfully updated.*`
                 )
                 .addFields(
                     { name: 'Flight Number', value: `\`${flightNum}\``, inline: true },
-                    { name: 'Status', value: isLocked ? '🚫 Allocations Closed' : '✅ Allocations Open', inline: true }
+                    { name: 'Message ID', value: `\`${messageId}\``, inline: true },
+                    { name: 'Database Status', value: isLocked ? '🚫 Allocations Closed' : '✅ Allocations Open', inline: true }
                 )
                 .setFooter({ text: 'LOT Polish Airlines • Flight Operations' })
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [statusEmbed] });
 
-            // Send log to staff log channel
+            // 5. Forward log entry
             await sendLog(interaction, {
-                action: isLocked ? '🔒 Timetable Locked' : '🔓 Timetable Unlocked',
+                action: isLocked ? '🔒 Timetable Locked (DB Updated)' : '🔓 Timetable Unlocked (DB Updated)',
                 admin: interaction.user,
                 flightNumber: flightNum,
                 messageId
@@ -113,12 +117,12 @@ module.exports = {
 
         } catch (error) {
             console.error('❌ Error executing /allocation-lock:', error);
-            await interaction.editReply(`❌ Failed to update flight lock state: \`${error.message}\``);
+            await interaction.editReply(`❌ Failed to update MongoDB lock state: \`${error.message}\``);
         }
     },
 };
 
-// Helper function to process logs consistently across operations commands
+// Log forwarding helper
 async function sendLog(interaction, { action, admin, flightNumber, messageId }) {
     const logChannelId = process.env.LOG_CHANNEL_ID;
     if (!logChannelId) return;
