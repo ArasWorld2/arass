@@ -3,7 +3,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('disc
 const Allocation = require('../models/Allocation');
 const { getRoleConfig, buildMainEmbed, buildButtons, ROLES } = require('../utils/embeds');
 
-// Complete mapping of short keys to exact MongoDB schema field names
+// Complete mapping of short keys <-> full schema field names
 const KEY_ALIASES = {
   dc: ['dispatchCoordinator', 'dc', 'departureCoordinator', 'departure_coordinator', 'DC'],
   mb: ['dispatchSupervisor', 'flightSupervisor', 'mb', 'managementBoard', 'management_board'],
@@ -48,7 +48,6 @@ module.exports = {
   async autocomplete(interaction) {
     try {
       const focusedValue = (interaction.options.getFocused() || '').trim().toUpperCase();
-
       const query = focusedValue 
         ? { 'flight.number': { $regex: focusedValue, $options: 'i' } } 
         : {};
@@ -95,124 +94,69 @@ module.exports = {
     }
 
     if (allocation.isLocked) {
-      return interaction.editReply('🔒 **Allocation Error:** This timetable schedule is currently locked. No modifications or unallocations are permitted.');
+      return interaction.editReply('🔒 **Allocation Error:** This timetable schedule is currently locked.');
     }
 
     const possibleKeys = KEY_ALIASES[roleKey] || [roleKey];
-    let matchedKey = null;
     let isAllocated = false;
 
-    const rawDoc = allocation.toObject ? allocation.toObject() : allocation;
-
-    // Search through schema fields
-    for (const key of possibleKeys) {
-      const val = rawDoc[key];
-      if (val) {
-        if (Array.isArray(val) && val.includes(user.id)) {
-          matchedKey = key;
+    // 1. Wipe target user from ALL matching key variants across the document
+    possibleKeys.forEach(k => {
+      if (allocation[k]) {
+        if (Array.isArray(allocation[k])) {
+          if (allocation[k].includes(user.id)) isAllocated = true;
+          allocation[k] = allocation[k].filter(id => id !== user.id);
+        } else if (allocation[k] === user.id) {
           isAllocated = true;
-          break;
-        } else if (typeof val === 'string' && val === user.id) {
-          matchedKey = key;
-          isAllocated = true;
-          break;
+          allocation[k] = [];
         }
+        allocation.markModified(k);
       }
-    }
+    });
 
-    // Search queues
+    // 2. Check and clean queue
     if (!allocation.queues) allocation.queues = {};
-    let matchedQueueKey = null;
     let isInQueue = false;
 
-    for (const key of possibleKeys) {
-      const qVal = allocation.queues[key];
-      if (qVal && Array.isArray(qVal) && qVal.includes(user.id)) {
-        matchedQueueKey = key;
-        isInQueue = true;
-        break;
+    possibleKeys.forEach(k => {
+      if (allocation.queues[k] && Array.isArray(allocation.queues[k])) {
+        if (allocation.queues[k].includes(user.id)) isInQueue = true;
+        allocation.queues[k] = allocation.queues[k].filter(id => id !== user.id);
       }
+    });
+    allocation.markModified('queues');
+
+    if (!isAllocated && !isInQueue) {
+      return interaction.editReply(`❌ <@${user.id}> is not in **${roleConfig.label}**.`);
     }
 
-    // 1. Remove from active slot
-    if (isAllocated && matchedKey) {
-      if (Array.isArray(allocation[matchedKey])) {
-        allocation[matchedKey] = allocation[matchedKey].filter(id => id !== user.id);
-      } else {
-        allocation[matchedKey] = [];
-      }
+    await allocation.save();
 
-      // Keep alternative keys in sync
-      possibleKeys.forEach(k => {
-        if (Array.isArray(allocation[k])) {
-          allocation[k] = allocation[k].filter(id => id !== user.id);
-        }
+    // 3. Re-fetch fresh document to ensure embed has synced values
+    const updatedAllocation = await Allocation.findOne({ messageId });
+
+    // Update main Discord embed sheet
+    try {
+      const channel = await interaction.client.channels.fetch(updatedAllocation.channelId);
+      const message = await channel.messages.fetch(messageId);
+      await message.edit({
+        embeds: [buildMainEmbed(updatedAllocation.flight, updatedAllocation)],
+        components: buildButtons()
       });
-
-      // Promote from queue if present
-      const queueKey = matchedQueueKey || roleKey;
-      if (allocation.queues[queueKey] && allocation.queues[queueKey].length > 0) {
-        const promotedId = allocation.queues[queueKey].shift();
-
-        if (Array.isArray(allocation[matchedKey])) {
-          allocation[matchedKey].push(promotedId);
-        } else {
-          allocation[matchedKey] = [promotedId];
-        }
-
-        try {
-          const promotedUser = await interaction.client.users.fetch(promotedId);
-          await promotedUser.send(
-            `✈️ **LOT Polish Airlines Notice**\n\n` +
-            `You have been promoted from the waiting queue to **${roleConfig.label}** for flight **${allocation.flight?.number || 'Flight'}**.`
-          ).catch(() => {});
-        } catch {}
-      }
-
-      await allocation.save();
-
-      // Update Discord embed
-      try {
-        const channel = await interaction.client.channels.fetch(allocation.channelId);
-        const message = await channel.messages.fetch(messageId);
-        await message.edit({
-          embeds: [buildMainEmbed(allocation.flight, allocation)],
-          components: buildButtons()
-        });
-      } catch (err) {
-        console.warn('Could not update flight sheet embed:', err.message);
-      }
-
-      await sendLog(interaction, {
-        action: '🔴 Admin Unallocated',
-        admin: interaction.user,
-        target: user,
-        role: roleConfig.label,
-        flightNumber: allocation.flight?.number || 'Unknown',
-        messageId,
-      });
-
-      return interaction.editReply(`✅ Removed <@${user.id}> from **${roleConfig.label}**.`);
+    } catch (err) {
+      console.warn('Could not update flight sheet embed:', err.message);
     }
 
-    // 2. Remove from queue
-    if (isInQueue && matchedQueueKey) {
-      allocation.queues[matchedQueueKey] = allocation.queues[matchedQueueKey].filter(id => id !== user.id);
-      await allocation.save();
+    await sendLog(interaction, {
+      action: '🔴 Admin Unallocated',
+      admin: interaction.user,
+      target: user,
+      role: roleConfig.label,
+      flightNumber: updatedAllocation.flight?.number || 'Unknown',
+      messageId,
+    });
 
-      await sendLog(interaction, {
-        action: '🔴 Admin Removed from Queue',
-        admin: interaction.user,
-        target: user,
-        role: roleConfig.label,
-        flightNumber: allocation.flight?.number || 'Unknown',
-        messageId,
-      });
-
-      return interaction.editReply(`✅ Removed <@${user.id}> from the **${roleConfig.label}** queue.`);
-    }
-
-    return interaction.editReply(`❌ <@${user.id}> is not in **${roleConfig.label}**.`);
+    return interaction.editReply(`✅ Removed <@${user.id}> from **${roleConfig.label}**.`);
   },
 };
 
