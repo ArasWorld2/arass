@@ -3,7 +3,7 @@ const Allocation = require('../models/Allocation');
 const Loa = require('../models/Loa');
 const embeds = require('../utils/embeds'); 
 
-// Comprehensive dictionary mapping short menu keys to MongoDB schema property names
+// Dictionary mapping short menu keys to MongoDB schema property names
 const KEY_ALIASES = {
     dc: ['dispatchCoordinator', 'dc', 'departureCoordinator', 'departure_coordinator', 'DC'],
     mb: ['dispatchSupervisor', 'flightSupervisor', 'mb', 'managementBoard', 'management_board'],
@@ -72,44 +72,22 @@ module.exports = {
                         });
                     }
 
-                    // ==================== [DEEP DEBUG LOG] ====================
-                    console.log('=== [LEAVE SHIFT DEEP DEBUG LOG] ===');
-                    console.log('Target User ID:', userId);
-
-                    const rawObject = allocation.toObject ? allocation.toObject() : allocation;
-                    console.log('FULL MONGO DOCUMENT JSON:');
-                    console.log(JSON.stringify(rawObject, null, 2));
-
-                    function deepSearchUser(obj, path = '') {
-                        for (const key in obj) {
-                            const currentPath = path ? `${path}.${key}` : key;
-                            const value = obj[key];
-
-                            if (value === userId || (typeof value === 'string' && value.includes(userId))) {
-                                console.log(`FOUND USER ID AT PATH: "${currentPath}" -> Value:`, value);
-                            } else if (Array.isArray(value)) {
-                                value.forEach((item, index) => {
-                                    if (item === userId || (typeof item === 'string' && item.includes(userId)) || (item && item._id === userId)) {
-                                        console.log(`FOUND USER ID AT PATH: "${currentPath}[${index}]" -> Item:`, item);
-                                    } else if (typeof item === 'object' && item !== null) {
-                                        deepSearchUser(item, `${currentPath}[${index}]`);
-                                    }
-                                });
-                            } else if (typeof value === 'object' && value !== null) {
-                                deepSearchUser(value, currentPath);
-                            }
-                        }
-                    }
-
-                    deepSearchUser(rawObject);
-                    console.log('==================================================');
-                    // ==========================================================
-
                     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
                     let removedFromAny = false;
+                    const removedRoles = [];
+                    const flightNum = allocation.flight?.number || 'Unknown Flight';
 
-                    // 1. Wipe user across ALL mapped schema property fields (arrays and strings)
+                    // Helper to get formatted role labels from embeds utility
+                    const getRoleLabel = (key) => {
+                        if (embeds && typeof embeds.getRoleConfig === 'function') {
+                            const config = embeds.getRoleConfig(key);
+                            if (config && config.label) return config.label;
+                        }
+                        return key;
+                    };
+
+                    // 1. Wipe user across ALL schema property fields (arrays and strings)
                     ALL_SCHEMA_KEYS.forEach(key => {
                         if (allocation[key] !== undefined && allocation[key] !== null) {
                             if (Array.isArray(allocation[key])) {
@@ -117,26 +95,33 @@ module.exports = {
                                     allocation[key] = allocation[key].filter(id => id.toString() !== userId);
                                     allocation.markModified(key);
                                     removedFromAny = true;
+                                    const label = getRoleLabel(key);
+                                    if (!removedRoles.includes(label)) removedRoles.push(label);
                                 }
                             } else if (allocation[key].toString() === userId) {
                                 allocation[key] = [];
                                 allocation.markModified(key);
                                 removedFromAny = true;
+                                const label = getRoleLabel(key);
+                                if (!removedRoles.includes(label)) removedRoles.push(label);
                             }
                         }
                     });
 
-                    // 2. Dynamic top-level document property sweep
-                    for (const k of Object.keys(rawObject)) {
+                    // 2. Dynamic sweep through top-level document properties
+                    const rawDoc = allocation.toObject ? allocation.toObject() : allocation;
+                    for (const k of Object.keys(rawDoc)) {
                         if (['_id', '__v', 'messageId', 'channelId', 'flight', 'createdAt', 'updatedAt'].includes(k)) continue;
                         if (Array.isArray(allocation[k]) && allocation[k].map(id => id.toString()).includes(userId)) {
                             allocation[k] = allocation[k].filter(id => id.toString() !== userId);
                             allocation.markModified(k);
                             removedFromAny = true;
+                            const label = getRoleLabel(k);
+                            if (!removedRoles.includes(label)) removedRoles.push(label);
                         }
                     }
 
-                    // 3. Queue cleanup
+                    // 3. Wipe user from all queues
                     if (allocation.queues) {
                         const queueKeys = Object.keys(allocation.queues.toObject ? allocation.queues.toObject() : allocation.queues);
                         queueKeys.forEach(key => {
@@ -154,6 +139,12 @@ module.exports = {
 
                     await allocation.save();
 
+                    const rolesFormatted = removedRoles.length > 0 ? removedRoles.join(', ') : 'your roles';
+
+                    // Send Direct Message to the user
+                    await sendDM(interaction.user, `You have unallocated as **${rolesFormatted}** for **${flightNum}**.`);
+
+                    // Update main channel flight embed
                     if (embeds && typeof embeds.buildMainEmbed === 'function' && typeof embeds.buildButtons === 'function') {
                         await interaction.message.edit({
                             embeds: [embeds.buildMainEmbed(allocation.flight, allocation)],
@@ -161,15 +152,17 @@ module.exports = {
                         }).catch(err => console.error("Failed to edit flight embed:", err));
                     }
 
+                    // Audit Log
                     await sendLog(interaction, {
                         action: '🔴 Left All Shifts',
                         user: interaction.user,
-                        role: 'All Positions',
-                        flightNumber: allocation.flight?.number || 'Unknown',
+                        role: rolesFormatted,
+                        flightNumber: flightNum,
                         messageId
                     });
 
-                    return await interaction.editReply('✅ You have left your shift allocations.');
+                    // Ephemeral response ("only you can see this")
+                    return await interaction.editReply(`✅ You have unallocated as **${rolesFormatted}** for **${flightNum}**.`);
                 }
 
                 // ------------------------------------------
@@ -214,7 +207,7 @@ module.exports = {
                 }
 
                 const isInQueue = Array.isArray(allocation.queues[roleKey]) && allocation.queues[roleKey].map(id => id.toString()).includes(userId);
-                const flightNum = allocation.flight?.number || 'Unknown';
+                const flightNum = allocation.flight?.number || 'Unknown Flight';
 
                 if (allocation.isLocked === true) {
                     if (isAllocated || isInQueue) {
@@ -267,7 +260,7 @@ module.exports = {
 
                         await allocation.save();
                         await interaction.editReply(`🔴 Removed you from **${roleLabel}**.`);
-                        await sendDM(interaction.user, `You have unallocated from **${roleLabel}** for **${flightNum}**.`);
+                        await sendDM(interaction.user, `You have unallocated as **${roleLabel}** for **${flightNum}**.`);
 
                         if (promotedUser) {
                             await sendDM(promotedUser, `You have been allocated as **${roleLabel}** for **${flightNum}**.`);
