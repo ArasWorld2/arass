@@ -1,20 +1,28 @@
 const { EmbedBuilder, GuildScheduledEventStatus } = require('discord.js');
 
+// Custom LOT Emojis
+const EMOJIS = {
+  TAIL: '<:LOTTail:1520114549490057226>',
+  ARROW: '<:LOTSArrow:1520114515318935584>',
+  HEART: '<:LOTSHeart:1520114525586849985>',
+  CLICK: '<:leftclick:1520114571124150373>',
+  ROBLOX: '<:Roblox_White:1520114564010868998>'
+};
+
 // TRACKER CACHE: Keeps a memory of IDs that have ALREADY received a 20-hour alert
 const announcedFlightIds = new Set();
 let isUpdating = false;
 let isCacheInitialized = false;
 
-// Scans channel history specifically for existing 20-HOUR ALERTS (not just raw event links)
+// Scans channel history specifically for existing 20-HOUR ALERTS
 async function initializeAnnouncedCache(channel) {
   if (isCacheInitialized) return;
   try {
-    console.log("🔍 Scanning departure channel history for existing 20h alerts...");
+    console.log("🔍 Scanning departure channel history for existing LOT 20h alerts...");
     const messages = await channel.messages.fetch({ limit: 100 });
     
     for (const [, msg] of messages) {
-      // Only count messages that contain our specific 20-hour alert layout header
-      if (msg.content && msg.content.includes("### <:takeoff:1414277645134200955> Scheduled Flight")) {
+      if (msg.content && (msg.content.includes("Day of Travel Information") || msg.content.includes("LOT Polish Airlines"))) {
         const eventLinkRegex = /discord\.com\/events\/\d+\/(\d+)/;
         const match = msg.content.match(eventLinkRegex);
         if (match && match[1]) {
@@ -68,7 +76,7 @@ async function updateCalendar(client) {
 
       const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
 
-      const line = `<:Wnewtail:1272656069910462464> **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
+      const line = `${EMOJIS.TAIL} **${cleanEventName}** | ${timeHammerTime} | ${dateHammerTime}`;
 
       if (eventDay.getTime() === today.getTime()) {
         todayEvents.push(line);
@@ -81,7 +89,7 @@ async function updateCalendar(client) {
 
     const todayStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-    let descriptionText = "Below are the upcoming flights:\n\n";
+    let descriptionText = "Below are the upcoming LOT Polish Airlines operations:\n\n";
     
     descriptionText += `**Today (${todayStr}):**\n`;
     if (todayEvents.length > 0) {
@@ -98,14 +106,14 @@ async function updateCalendar(client) {
     }
 
     const embed = new EmbedBuilder()
-      .setColor(0xC6007E)
+      .setColor('#0C2340')
       .setAuthor({ 
-        name: 'Wizz Air — Flight Operations',
+        name: 'LOT Polish Airlines — Flight Operations',
         iconURL: guild.iconURL({ dynamic: true, size: 128 }) || undefined
       })
-      .setTitle('<:plane:1414277643314004079> Flight Calendar')
+      .setTitle(`${EMOJIS.TAIL} Flight Timetable & Schedule`)
       .setDescription(descriptionText)
-      .setFooter({ text: 'Wizz Air Operations' });
+      .setFooter({ text: 'LOT Polish Airlines Operations' });
 
     const channel = await client.channels.fetch(calendarChannelId);
 
@@ -115,7 +123,8 @@ async function updateCalendar(client) {
       const existingCalendar = history.find(msg => 
         msg.author.id === client.user.id && 
         msg.embeds.length > 0 && 
-        msg.embeds[0].title === '<:plane:1414277643314004079> Flight Calendar'
+        msg.embeds[0].title &&
+        msg.embeds[0].title.includes('Flight Timetable')
       );
       
       if (existingCalendar) {
@@ -172,25 +181,17 @@ async function checkUpcomingDepartures(client) {
       const timeDiffMs = event.scheduledStartAt.getTime() - now.getTime();
       const hoursUntilDeparture = timeDiffMs / (1000 * 60 * 60);
 
-      // Skip if already announced
       if (announcedFlightIds.has(event.id)) {
         continue;
       }
 
-      // Check if event is within the 20-hour window
+      // 20-hour departure window trigger
       if (hoursUntilDeparture <= 20 && hoursUntilDeparture > 0) {
         
         announcedFlightIds.add(event.id);
 
-        const day = String(event.scheduledStartAt.getDate()).padStart(2, '0');
-        const month = String(event.scheduledStartAt.getMonth() + 1).padStart(2, '0');
-        const year = event.scheduledStartAt.getFullYear();
-        const formattedDate = `${day}/${month}/${year}`;
-
         const cleanEventName = event.name.replace(/[\[\]\*]/g, '').trim();
-        
         const unixTimestamp = Math.floor(event.scheduledStartAt.getTime() / 1000);
-        const relativeHammerTime = `<t:${unixTimestamp}:R>`;
 
         // Ghost ping role or @everyone
         const pingTarget = pingRoleId ? `<@&${pingRoleId}>` : '@everyone';
@@ -199,18 +200,25 @@ async function checkUpcomingDepartures(client) {
           await ghostPingMessage.delete().catch(() => {});
         } catch {}
 
+        // Exact Day of Travel Information Announcement Layout
         const flightAlertLayout = 
-          `### <:takeoff:1414277645134200955> Scheduled Flight\n` +
-          `-# <:blank:1296498991114227763> \`${formattedDate}\` \n\n` +
-          `> We would like to remind you that flight **${cleanEventName}** is scheduled to depart **${relativeHammerTime}**. For your convenience, all **relevant details for the departure** may be found in the event card shared below. If you have any inquiries or concerns about the upcoming itinerary, please don't hesitate to let us know through contacting **<@1297542149620891788>**.\n` +
-          ` <:announcement:1414277746233708669> Please be advised that you must be a member of our [**Roblox Group**](<https://www.roblox.com/communities/822510972/w-zzair-rblx#!/about>) to join flights. On behalf of **Wizz Air**, we wish you a pleasant journey.\n\n` +
-          `-# <:link:1414278009573347328> [**${cleanEventName}**](<${event.url}>)`;
+          `${EMOJIS.TAIL} **Day of Travel Information**\n\n` +
+          `**${cleanEventName}**\n\n` +
+          `✈️ **Aircraft**: Boeing 737-800 / SP-LVD\n` +
+          `📍 **Gate Number**: Revealed U T H\n\n` +
+          `${EMOJIS.ARROW} Server opens <t:${unixTimestamp - 900}:t>. Boarding begins <t:${unixTimestamp}:t>.\n` +
+          `${EMOJIS.ARROW} In order to __drop your bags__, please go to check-in at desks **C01-C05**.\n` +
+          `${EMOJIS.ARROW} You may be refused boarding if you do not have the appropriate travel documents and/or are late.\n\n` +
+          `__Z wyrazami szacunku,__\n` +
+          `👤 **LOT Flight Operations**\n` +
+          `*Flight Operations Department*\n\n` +
+          `-# ${EMOJIS.CLICK} [**Event Details & Access**](<${event.url}>)`;
 
         await departuresChannel.send({ 
           content: flightAlertLayout 
         });
 
-        console.log(`📢 20-hour alert posted cleanly for flight: ${cleanEventName}`);
+        console.log(`📢 Day of Travel alert posted cleanly for flight: ${cleanEventName}`);
       }
     }
 
@@ -221,11 +229,9 @@ async function checkUpcomingDepartures(client) {
 }
 
 function startCalendarLoop(client) {
-  // Execute initial checks immediately on startup
   updateCalendar(client);
   checkUpcomingDepartures(client); 
 
-  // Run loop every 5 minutes (300,000 ms)
   setInterval(async () => {
     if (isUpdating) return;
     isUpdating = true;
