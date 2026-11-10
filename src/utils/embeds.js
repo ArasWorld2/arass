@@ -2,8 +2,8 @@ const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMen
 
 // Custom Discord Emojis
 const EMOJIS = {
-    TAIL: '<:LOTTail:1243912109125795920>',
-    ARROW: '<:Arrow6:1243911911527944283>',
+    TAIL: '<:LOTTail:1520114549490057226>',
+    ARROW: '<:LOTSArrow:1520114515318935584>',
     DOT: '<:Dot:1243911986115248138>'
 };
 
@@ -75,30 +75,35 @@ function buildMainEmbed(flight = {}, allocations = {}) {
     const cs     = getAssignedUsers(allocations, 'customerService', 'cs');
     const gate   = getAssignedUsers(allocations, 'gateAgent', 'gate');
 
+    const gateText  = flight.gate || 'TBD';
+    const staffTime = flight.staff_time || flight.staffTime || 'TBD';
+    const paxTime   = flight.passenger_time || flight.passengerTime || 'TBD';
+
     const description = 
         `${EMOJIS.TAIL} **Allocation List**\n` +
-        `${EMOJIS.ARROW} This allocation list is for __${flight.number || 'LO XXX'}__ to ${flight.to || 'Destination'} on the **${flight.date || '1st of January'}**.\n` +
-        `${EMOJIS.ARROW} In order to allocate for this flight, please use the allocation channel corresponding to this flight.\n\n` +
+        `${EMOJIS.ARROW} This allocation list is for **${flight.number || 'LO XXX'}** from **${flight.from || 'WARSAW'}** to **${flight.to || 'Destination'}** on **${flight.date || '1st of January'}**.\n` +
+        `${EMOJIS.ARROW} **Gate**: ${gateText} | **Personnel Join**: ${staffTime} | **Pax Join**: ${paxTime}\n` +
+        `${EMOJIS.ARROW} In order to allocate or unallocate for this flight, please use the dropdown menu below.\n\n` +
         `${EMOJIS.DOT} **Flight Management**\n` +
-        `${EMOJIS.ARROW}__Departure Coordinator (${dc.length}/1)__: ${formatUsers(dc, queues.dc || queues.dispatchCoordinator)}\n` +
-        `${EMOJIS.ARROW}__Management Board__: ${formatUsers(mb, queues.mb || queues.dispatchSupervisor)}\n\n` +
+        `${EMOJIS.ARROW} **Departure Coordinator (${dc.length}/1)**: ${formatUsers(dc, queues.dc || queues.dispatchCoordinator)}\n` +
+        `${EMOJIS.ARROW} **Management Board**: ${formatUsers(mb, queues.mb || queues.dispatchSupervisor)}\n\n` +
         `${EMOJIS.DOT} **Flight Deck**\n` +
-        `${EMOJIS.ARROW}__Captain (${cpt.length}/1)__: ${formatUsers(cpt, queues.cpt || queues.captain)}\n` +
-        `${EMOJIS.ARROW}__First Officer (${fo.length}/1)__: ${formatUsers(fo, queues.fo || queues.firstOfficer)}\n` +
-        `${EMOJIS.ARROW}__Stand-by Flight Deck__: ${formatUsers(stbyFd, queues.stbyFd || queues.standbyFlightDeck)}\n\n` +
+        `${EMOJIS.ARROW} **Captain (${cpt.length}/1)**: ${formatUsers(cpt, queues.cpt || queues.captain)}\n` +
+        `${EMOJIS.ARROW} **First Officer (${fo.length}/1)**: ${formatUsers(fo, queues.fo || queues.firstOfficer)}\n` +
+        `${EMOJIS.ARROW} **Stand-by Flight Deck**: ${formatUsers(stbyFd, queues.stbyFd || queues.standbyFlightDeck)}\n\n` +
         `${EMOJIS.DOT} **Cabin Crew**\n` +
-        `${EMOJIS.ARROW}__Purser (${purser.length}/1)__: ${formatUsers(purser, queues.purser)}\n` +
-        `${EMOJIS.ARROW}__Cabin Crew (${cc.length}/3)__: ${formatUsers(cc, queues.cc || queues.cabinCrew)}\n` +
-        `${EMOJIS.ARROW}__Stand-by Cabin Crew__: ${formatUsers(stbyCc, queues.stbyCc || queues.standbyCabinCrew)}\n\n` +
+        `${EMOJIS.ARROW} **Purser (${purser.length}/1)**: ${formatUsers(purser, queues.purser)}\n` +
+        `${EMOJIS.ARROW} **Cabin Crew (${cc.length}/3)**: ${formatUsers(cc, queues.cc || queues.cabinCrew)}\n` +
+        `${EMOJIS.ARROW} **Stand-by Cabin Crew**: ${formatUsers(stbyCc, queues.stbyCc || queues.standbyCabinCrew)}\n\n` +
         `${EMOJIS.DOT} **Ground Crew**\n` +
-        `${EMOJIS.ARROW}__Tarmac Supervisor (${ts.length}/1)__: ${formatUsers(ts, queues.ts || queues.tarmacSupervisor)}\n` +
-        `${EMOJIS.ARROW}__Ground Crew (${gc.length}/3)__: ${formatUsers(gc, queues.gc || queues.groundHandling)}\n` +
-        `${EMOJIS.ARROW}__Stand-by Ground Crew__: ${formatUsers(stbyGc, queues.stbyGc || queues.standbyGroundCrew)}\n\n` +
+        `${EMOJIS.ARROW} **Tarmac Supervisor (${ts.length}/1)**: ${formatUsers(ts, queues.ts || queues.tarmacSupervisor)}\n` +
+        `${EMOJIS.ARROW} **Ground Crew (${gc.length}/3)**: ${formatUsers(gc, queues.gc || queues.groundHandling)}\n` +
+        `${EMOJIS.ARROW} **Stand-by Ground Crew**: ${formatUsers(stbyGc, queues.stbyGc || queues.standbyGroundCrew)}\n\n` +
         `${EMOJIS.DOT} **Airport Worker**\n` +
-        `${EMOJIS.ARROW} __Business Class Bag Drop (${bcbd.length}/1)__: ${formatUsers(bcbd, queues.bcbd || queues.bagDropAgent)}\n` +
-        `${EMOJIS.ARROW}__Economy Class Bag Drop (${ecbd.length}/3)__: ${formatUsers(ecbd, queues.ecbd)}\n` +
-        `${EMOJIS.ARROW}__Customer Service (${cs.length}/2)__: ${formatUsers(cs, queues.cs || queues.customerService)}\n` +
-        `${EMOJIS.ARROW}__Gate Agent (${gate.length}/1)*__: ${formatUsers(gate, queues.gate || queues.gateAgent)}`;
+        `${EMOJIS.ARROW} **Business Class Bag Drop (${bcbd.length}/1)**: ${formatUsers(bcbd, queues.bcbd || queues.bagDropAgent)}\n` +
+        `${EMOJIS.ARROW} **Economy Class Bag Drop (${ecbd.length}/3)**: ${formatUsers(ecbd, queues.ecbd)}\n` +
+        `${EMOJIS.ARROW} **Customer Service (${cs.length}/2)**: ${formatUsers(cs, queues.cs || queues.customerService)}\n` +
+        `${EMOJIS.ARROW} **Gate Agent (${gate.length}/1)***: ${formatUsers(gate, queues.gate || queues.gateAgent)}`;
 
     return new EmbedBuilder()
         .setColor('#0C2340') // LOT Polish Airlines Navy
