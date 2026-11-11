@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const Profile = require('../models/Profile');
 
 // Custom LOT Emojis & Branding
@@ -8,6 +8,25 @@ const EMOJIS = {
     DOT: '<:Dot:1243911986115248138>'
 };
 const LOT_NAVY = '#0C2340';
+const LOT_GROUP_ID = 15347085;
+
+// Helper to fetch live Roblox Group rank
+async function getRobloxGroupRank(robloxId) {
+    try {
+        const res = await fetch(`https://groups.roblox.com/v1/users/${robloxId}/groups/roles`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data && Array.isArray(data.data)) {
+            const groupInfo = data.data.find(g => g.group && g.group.id === LOT_GROUP_ID);
+            if (groupInfo && groupInfo.role) {
+                return groupInfo.role.name;
+            }
+        }
+    } catch (err) {
+        console.error('Failed to fetch Roblox group rank:', err);
+    }
+    return null;
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -31,7 +50,7 @@ module.exports = {
             });
         }
 
-        // Fetch Roblox Headshot Avatar Thumbnail
+        // Fetch Live Roblox Headshot Avatar Thumbnail
         const avatarUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${profile.robloxId}&size=420x420&format=Png&isCircular=false`;
         let headshotImage = 'https://i.imgur.com/vH3sY5r.png'; // Fallback LOT Logo
 
@@ -45,13 +64,21 @@ module.exports = {
             console.error('Failed to fetch Roblox avatar:', err);
         }
 
+        // Fetch Live Group Rank from Roblox API (Fallback to saved DB rank if not found)
+        const liveRank = await getRobloxGroupRank(profile.robloxId);
+        const displayRank = liveRank || profile.rank || 'Guest / Unranked';
+
+        // Calculate Salary: 1 Point = 25 RBX
+        const totalPoints = (profile.flightPoints || 0) + (profile.hostPoints || 0);
+        const calculatedSalary = totalPoints * 25;
+
         const description = 
             `Designated for **${profile.robloxUsername}**\n\n` +
-            `✈️ **Flight Points:**\n│ ${profile.flightPoints}\n\n` +
-            `🎫 **Host Points:**\n│ ${profile.hostPoints}\n\n` +
-            `⚠️ **Warnings:**\n│ ${profile.warnings}\n\n` +
-            `💵 **Salary:**\n│ ${profile.salary}\n\n` +
-            `👤 **Rank:**\n│ ${profile.rank}`;
+            `✈️ **Flight Points:**\n│ ${profile.flightPoints || 0}\n\n` +
+            `🎫 **Host Points:**\n│ ${profile.hostPoints || 0}\n\n` +
+            `⚠️ **Warnings:**\n│ ${profile.warnings || 0}\n\n` +
+            `💵 **Salary:**\n│ ${calculatedSalary} R$\n\n` +
+            `👤 **Rank:**\n│ ${displayRank}`;
 
         const embed = new EmbedBuilder()
             .setColor(LOT_NAVY)
