@@ -3,10 +3,7 @@ const {
     EmbedBuilder, 
     ActionRowBuilder, 
     ButtonBuilder, 
-    ButtonStyle, 
-    ModalBuilder, 
-    TextInputBuilder, 
-    TextInputStyle 
+    ButtonStyle 
 } = require('discord.js');
 const Profile = require('../models/Profile');
 
@@ -46,7 +43,6 @@ module.exports = {
         const targetUser = interaction.options.getUser('user') || interaction.user;
         const profile = await Profile.findOne({ userId: targetUser.id });
 
-        // IF NO PROFILE: Prompt self-creation modal button (if self) or show alert (if checking another user)
         if (!profile) {
             if (targetUser.id !== interaction.user.id) {
                 return interaction.reply({
@@ -63,45 +59,19 @@ module.exports = {
                     .setEmoji('📝')
             );
 
-            const reply = await interaction.reply({
+            return interaction.reply({
                 content: `❌ **No Profile Found**\nYou do not have an active profile registered in the system. Click the button below to register your Roblox account details!`,
                 components: [createBtn],
                 ephemeral: true
             });
+        }
 
-            // Handle Button Click -> Trigger Modal
-            const filter = i => i.customId === 'btn_open_profile_modal' && i.user.id === interaction.user.id;
-            try {
-                const btnInteraction = await reply.awaitMessageComponent({ filter, time: 60000 });
-                
-                const modal = new ModalBuilder()
-                    .setCustomId('modal_create_profile')
-                    .setTitle('LOT Staff Profile Registration');
-
-                const usernameInput = new TextInputBuilder()
-                    .setCustomId('input_roblox_username')
-                    .setLabel('Roblox Username')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('e.g. ArasWorld2')
-                    .setRequired(true);
-
-                const idInput = new TextInputBuilder()
-                    .setCustomId('input_roblox_id')
-                    .setLabel('Roblox User ID')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('e.g. 1081092271')
-                    .setRequired(true);
-
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(usernameInput),
-                    new ActionRowBuilder().addComponents(idInput)
-                );
-
-                await btnInteraction.showModal(modal);
-            } catch {
-                // Button timed out
-            }
-            return;
+        // Check if profile is pending HR approval
+        if (profile.isApproved === false) {
+            return interaction.reply({
+                content: `⏳ **Pending Approval:** ${targetUser.id === interaction.user.id ? 'Your profile registration has been sent to Human Resources and is currently awaiting approval.' : `<@${targetUser.id}>\'s profile registration is currently pending HR approval.`}`,
+                ephemeral: true
+            });
         }
 
         await interaction.deferReply();
