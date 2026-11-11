@@ -446,7 +446,7 @@ module.exports = {
         // ==========================================
         if (interaction.isModalSubmit()) {
 
-            // --- A. PROFILE SELF-CREATION MODAL ---
+            // --- A. PROFILE SELF-CREATION MODAL (SENT TO HR FOR APPROVAL) ---
             if (interaction.customId === 'modal_create_profile') {
                 try {
                     const username = interaction.fields.getTextInputValue('input_roblox_username').trim();
@@ -464,21 +464,57 @@ module.exports = {
                     if (profile) {
                         profile.robloxUsername = username;
                         profile.robloxId = robloxId;
+                        profile.isApproved = false; // Reset to pending approval upon re-submission
                         await profile.save();
                     } else {
                         profile = new Profile({
                             userId: interaction.user.id,
                             robloxUsername: username,
                             robloxId: robloxId,
-                            rank: 'Flight Crew'
+                            rank: 'Flight Crew',
+                            isApproved: false
                         });
                         await profile.save();
                     }
 
+                    // Send Embed to Human Resources Approval Channel
+                    const approvalChannelId = process.env.PROFILE_APPROVAL_CHANNEL_ID;
+                    const approvalChannel = await interaction.client.channels.fetch(approvalChannelId).catch(() => null);
+
+                    if (approvalChannel) {
+                        const hrEmbed = new EmbedBuilder()
+                            .setColor('#0C2340')
+                            .setTitle('📋 New Staff Profile Registration')
+                            .setDescription(
+                                `A new profile registration request has been submitted for Human Resources review.\n\n` +
+                                `👤 **Discord User:** <@${interaction.user.id}> (${interaction.user.tag})\n` +
+                                `🎮 **Roblox Username:** ${username}\n` +
+                                `🆔 **Roblox User ID:** ${robloxId}\n` +
+                                `🔗 **Roblox Profile:** [View Account](https://www.roblox.com/users/${robloxId}/profile)`
+                            )
+                            .setThumbnail(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${robloxId}&size=420x420&format=Png&isCircular=false`)
+                            .setFooter({ text: 'LOT Polish Airlines • Human Resources' })
+                            .setTimestamp();
+
+                        const hrButtons = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`prof_approve_${profile._id}`)
+                                .setLabel('Approve')
+                                .setStyle(ButtonStyle.Success),
+                            new ButtonBuilder()
+                                .setCustomId(`prof_deny_${profile._id}`)
+                                .setLabel('Deny')
+                                .setStyle(ButtonStyle.Danger)
+                        );
+
+                        await approvalChannel.send({ embeds: [hrEmbed], components: [hrButtons] });
+                    }
+
                     return await interaction.reply({
-                        content: `✅ **Profile Created Successfully!**\nRegistered account as **${username}** (ID: ${robloxId}). Run \`/profile\` again to view your full profile!`,
+                        content: `✅ **Request Submitted!** Your registration request for **${username}** has been sent to **Human Resources** for approval. You will receive a Direct Message once your profile has been reviewed.`,
                         flags: [MessageFlags.Ephemeral]
                     });
+
                 } catch (err) {
                     console.error('Error saving profile from modal:', err);
                     return await interaction.reply({
@@ -628,7 +664,54 @@ module.exports = {
                 return await interaction.showModal(modal);
             }
 
-            // --- B. FLIGHT DECK LOTTERY POOL BUTTONS ---
+            // --- B. PROFILE HR APPROVAL / DENIAL BUTTONS ---
+            if (interaction.customId.startsWith('prof_approve_') || interaction.customId.startsWith('prof_deny_')) {
+                const isApprove = interaction.customId.startsWith('prof_approve_');
+                const profileId = interaction.customId.replace('prof_approve_', '').replace('prof_deny_', '');
+
+                const profile = await Profile.findById(profileId);
+                if (!profile) {
+                    return await interaction.reply({ content: '❌ Profile record not found in database.', flags: [MessageFlags.Ephemeral] });
+                }
+
+                const targetUser = await interaction.client.users.fetch(profile.userId).catch(() => null);
+
+                if (isApprove) {
+                    profile.isApproved = true;
+                    await profile.save();
+
+                    const approvedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                        .setColor('#2ecc71')
+                        .setTitle('✅ Staff Profile Approved')
+                        .setDescription(interaction.message.embeds[0].description + `\n\n🟢 **Status:** Approved by <@${interaction.user.id}>`);
+
+                    await interaction.message.edit({ embeds: [approvedEmbed], components: [] });
+
+                    if (targetUser) {
+                        await sendDM(targetUser, `🎉 **Profile Approved!**\nYour LOT Polish Airlines staff profile registration (**${profile.robloxUsername}**) has been approved by Human Resources. You can now use \`/profile\`!`);
+                    }
+
+                    return await interaction.reply({ content: `✅ Approved profile for <@${profile.userId}>. DM notification sent.`, flags: [MessageFlags.Ephemeral] });
+
+                } else {
+                    await Profile.findByIdAndDelete(profileId);
+
+                    const deniedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                        .setColor('#e74c3c')
+                        .setTitle('❌ Staff Profile Denied')
+                        .setDescription(interaction.message.embeds[0].description + `\n\n🔴 **Status:** Denied and removed by <@${interaction.user.id}>`);
+
+                    await interaction.message.edit({ embeds: [deniedEmbed], components: [] });
+
+                    if (targetUser) {
+                        await sendDM(targetUser, `❌ **Profile Registration Denied**\nYour LOT Polish Airlines staff profile registration (**${profile.robloxUsername}**) was denied by Human Resources. Please double-check your Roblox details and try submitting again.`);
+                    }
+
+                    return await interaction.reply({ content: `❌ Denied and removed profile application for <@${profile.userId}>. DM notification sent.`, flags: [MessageFlags.Ephemeral] });
+                }
+            }
+
+            // --- C. FLIGHT DECK LOTTERY POOL BUTTONS ---
             if (interaction.customId.startsWith('fd_apply_cpt_') || interaction.customId.startsWith('fd_apply_fo_')) {
                 try {
                     const isCpt = interaction.customId.startsWith('fd_apply_cpt_');
@@ -686,7 +769,7 @@ module.exports = {
                 }
             }
 
-            // --- C. LOA MANAGEMENT ACTION BUTTONS ---
+            // --- D. LOA MANAGEMENT ACTION BUTTONS ---
             if (interaction.customId.startsWith('loa_')) {
                 if (!interaction.member.permissions.has('ManageMessages')) {
                     return await interaction.reply({ content: '🚫 You lack permission to manage LOA records.', flags: [MessageFlags.Ephemeral] });
