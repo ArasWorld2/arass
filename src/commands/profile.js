@@ -1,16 +1,22 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { 
+    SlashCommandBuilder, 
+    EmbedBuilder, 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle, 
+    ModalBuilder, 
+    TextInputBuilder, 
+    TextInputStyle 
+} = require('discord.js');
 const Profile = require('../models/Profile');
 
-// Custom LOT Emojis & Branding
 const EMOJIS = {
     TAIL: '<:LOTTail:1520114549490057226>',
-    ARROW: '<:LOTSArrow:1520114515318935584>',
-    DOT: '<:Dot:1243911986115248138>'
+    ARROW: '<:LOTSArrow:1520114515318935584>'
 };
 const LOT_NAVY = '#0C2340';
 const LOT_GROUP_ID = 15347085;
 
-// Helper to fetch live Roblox Group rank
 async function getRobloxGroupRank(robloxId) {
     try {
         const res = await fetch(`https://groups.roblox.com/v1/users/${robloxId}/groups/roles`);
@@ -18,9 +24,7 @@ async function getRobloxGroupRank(robloxId) {
         const data = await res.json();
         if (data && Array.isArray(data.data)) {
             const groupInfo = data.data.find(g => g.group && g.group.id === LOT_GROUP_ID);
-            if (groupInfo && groupInfo.role) {
-                return groupInfo.role.name;
-            }
+            if (groupInfo && groupInfo.role) return groupInfo.role.name;
         }
     } catch (err) {
         console.error('Failed to fetch Roblox group rank:', err);
@@ -39,36 +43,88 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        await interaction.deferReply();
-
         const targetUser = interaction.options.getUser('user') || interaction.user;
         const profile = await Profile.findOne({ userId: targetUser.id });
 
+        // IF NO PROFILE: Prompt self-creation modal button (if self) or show alert (if checking another user)
         if (!profile) {
-            return interaction.editReply({
-                content: `❌ **No Profile Found**\n${targetUser.id === interaction.user.id ? 'You do not have an active profile registered in the system. Please inform Administration so they can set one up for you.' : `<@${targetUser.id}> does not have a profile set up yet.`}`
+            if (targetUser.id !== interaction.user.id) {
+                return interaction.reply({
+                    content: `❌ <@${targetUser.id}> does not have a profile set up yet.`,
+                    ephemeral: true
+                });
+            }
+
+            const createBtn = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('btn_open_profile_modal')
+                    .setLabel('Create Profile')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('📝')
+            );
+
+            const reply = await interaction.reply({
+                content: `❌ **No Profile Found**\nYou do not have an active profile registered in the system. Click the button below to register your Roblox account details!`,
+                components: [createBtn],
+                ephemeral: true
             });
+
+            // Handle Button Click -> Trigger Modal
+            const filter = i => i.customId === 'btn_open_profile_modal' && i.user.id === interaction.user.id;
+            try {
+                const btnInteraction = await reply.awaitMessageComponent({ filter, time: 60000 });
+                
+                const modal = new ModalBuilder()
+                    .setCustomId('modal_create_profile')
+                    .setTitle('LOT Staff Profile Registration');
+
+                const usernameInput = new TextInputBuilder()
+                    .setCustomId('input_roblox_username')
+                    .setLabel('Roblox Username')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('e.g. ArasWorld2')
+                    .setRequired(true);
+
+                const idInput = new TextInputBuilder()
+                    .setCustomId('input_roblox_id')
+                    .setLabel('Roblox User ID')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('e.g. 1081092271')
+                    .setRequired(true);
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(usernameInput),
+                    new ActionRowBuilder().addComponents(idInput)
+                );
+
+                await btnInteraction.showModal(modal);
+            } catch {
+                // Button timed out
+            }
+            return;
         }
+
+        await interaction.deferReply();
 
         // Fetch Live Roblox Headshot Avatar Thumbnail
         const avatarUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${profile.robloxId}&size=420x420&format=Png&isCircular=false`;
-        let headshotImage = 'https://i.imgur.com/vH3sY5r.png'; // Fallback LOT Logo
+        let headshotImage = 'https://i.imgur.com/vH3sY5r.png';
 
         try {
             const res = await fetch(avatarUrl);
             const data = await res.json();
-            if (data && data.data && data.data[0] && data.data[0].imageUrl) {
+            if (data?.data?.[0]?.imageUrl) {
                 headshotImage = data.data[0].imageUrl;
             }
         } catch (err) {
             console.error('Failed to fetch Roblox avatar:', err);
         }
 
-        // Fetch Live Group Rank from Roblox API (Fallback to saved DB rank if not found)
+        // Fetch Live Group Rank
         const liveRank = await getRobloxGroupRank(profile.robloxId);
         const displayRank = liveRank || profile.rank || 'Guest / Unranked';
 
-        // Calculate Salary: 1 Point = 25 RBX
+        // Calculate Salary (1 Point = 25 RBX)
         const totalPoints = (profile.flightPoints || 0) + (profile.hostPoints || 0);
         const calculatedSalary = totalPoints * 25;
 
