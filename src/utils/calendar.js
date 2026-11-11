@@ -3,18 +3,18 @@ const { EmbedBuilder, GuildScheduledEventStatus } = require('discord.js');
 // Custom LOT Emojis
 const EMOJIS = {
   TAIL: '<:LOTTail:1520114549490057226>',
-  ARROW: '<:LOTSArrow:1520114515318935584>',
-  HEART: '<:LOTSHeart:1520114525586849985>',
-  CLICK: '<:leftclick:1520114571124150373>',
-  ROBLOX: '<:Roblox_White:1520114564010868998>'
+  ARROW1: '<:LOTSArrow:1520114515318935584>',
+  ARROW2: '<:LOTSArrow:1520114515318935584>',
+  MANAGER: '<:LOTSManager:1520114571124150373>',
+  CLICK: '<:leftclick:1520114571124150373>'
 };
 
-// TRACKER CACHE: Keeps a memory of IDs that have ALREADY received a 20-hour alert
+// TRACKER CACHE: Tracks event IDs that have received a 20-hour alert
 const announcedFlightIds = new Set();
-let isUpdating = false;
+let isCalendarUpdating = false;
 let isCacheInitialized = false;
 
-// Scans channel history specifically for existing 20-HOUR ALERTS
+// Scans channel history specifically for existing 20-HOUR ALERTS on boot
 async function initializeAnnouncedCache(channel) {
   if (isCacheInitialized) return;
   try {
@@ -40,7 +40,6 @@ async function initializeAnnouncedCache(channel) {
 
 async function updateCalendar(client) {
   const calendarChannelId = process.env.CALENDAR_CHANNEL_ID;
-  let calendarMessageId   = process.env.CALENDAR_MESSAGE_ID;
   const calendarGuildId   = process.env.CALENDAR_GUILD_ID;
   if (!calendarChannelId || !calendarGuildId) return;
 
@@ -106,7 +105,7 @@ async function updateCalendar(client) {
     }
 
     const embed = new EmbedBuilder()
-      .setColor('#0C2340')
+      .setColor('#0C2340') // LOT Navy Blue
       .setAuthor({ 
         name: 'LOT Polish Airlines — Flight Operations',
         iconURL: guild.iconURL({ dynamic: true, size: 128 }) || undefined
@@ -117,34 +116,24 @@ async function updateCalendar(client) {
 
     const channel = await client.channels.fetch(calendarChannelId);
 
-    if (!calendarMessageId) {
-      console.log("🔍 Searching channel history for existing calendar message...");
-      const history = await channel.messages.fetch({ limit: 20 });
-      const existingCalendar = history.find(msg => 
-        msg.author.id === client.user.id && 
-        msg.embeds.length > 0 && 
-        msg.embeds[0].title &&
-        msg.embeds[0].title.includes('Flight Timetable')
-      );
-      
-      if (existingCalendar) {
-        calendarMessageId = existingCalendar.id;
-        console.log(`📌 Found calendar message ID: ${calendarMessageId}`);
-      }
+    // Auto-search channel history for existing calendar embed created by the bot
+    const history = await channel.messages.fetch({ limit: 50 });
+    const existingMsg = history.find(msg => 
+      msg.author.id === client.user.id && 
+      msg.embeds.length > 0 && 
+      msg.embeds[0].title &&
+      msg.embeds[0].title.includes('Flight Timetable')
+    );
+
+    if (existingMsg) {
+      // Edit the existing calendar message in place
+      await existingMsg.edit({ content: '', embeds: [embed] });
+      return; 
     }
 
-    if (calendarMessageId) {
-      try {
-        const msg = await channel.messages.fetch(calendarMessageId);
-        await msg.edit({ content: '', embeds: [embed] });
-        return; 
-      } catch (fetchErr) {
-        console.log("Old calendar message not found. Sending a new one...");
-      }
-    }
-
-    const newMsg = await channel.send({ content: '', embeds: [embed] });
-    console.log(`📅 New Calendar posted! CALENDAR_MESSAGE_ID=${newMsg.id}`);
+    // If no existing message was found, send it once
+    await channel.send({ content: '', embeds: [embed] });
+    console.log('📅 New Calendar posted cleanly!');
 
   } catch (err) {
     if (err.code === 50001 || err.code === 10003) return;
@@ -200,19 +189,19 @@ async function checkUpcomingDepartures(client) {
           await ghostPingMessage.delete().catch(() => {});
         } catch {}
 
-        // Exact Day of Travel Information Announcement Layout
+        // Standardized LOT Day of Travel Information Announcement Layout
         const flightAlertLayout = 
-          `${EMOJIS.TAIL} **Day of Travel Information**\n\n` +
+          `${EMOJIS.TAIL} **Day of Travel Information**\n` +
           `**${cleanEventName}**\n\n` +
-          `✈️ **Aircraft**: Boeing 737-800 / SP-LVD\n` +
-          `📍 **Gate Number**: Revealed U T H\n\n` +
-          `${EMOJIS.ARROW} Server opens <t:${unixTimestamp - 900}:t>. Boarding begins <t:${unixTimestamp}:t>.\n` +
-          `${EMOJIS.ARROW} In order to __drop your bags__, please go to check-in at desks **C01-C05**.\n` +
-          `${EMOJIS.ARROW} You may be refused boarding if you do not have the appropriate travel documents and/or are late.\n\n` +
+          `${EMOJIS.ARROW2}  **Aircraft**: Boeing 737-800 SP-LVD\n` +
+          `${EMOJIS.ARROW2}  **Gate Number**: Revealed U T H\n\n` +
+          `${EMOJIS.ARROW1}Server opens <t:${unixTimestamp - 900}:t>. Boarding begins <t:${unixTimestamp}:t>.\n` +
+          `${EMOJIS.ARROW1}In order to __drop your bags__, please go to check-in at desks **C01-C05**.\n` +
+          `${EMOJIS.ARROW1}You may be refused boarding if you do not have the appropriate travel documents and/or are late.\n\n` +
           `__Z wyrazami szacunku,__\n` +
-          `👤 **LOT Flight Operations**\n` +
+          `${EMOJIS.MANAGER} **LOT Flight Operations**\n` +
           `*Flight Operations Department*\n\n` +
-          `-# ${EMOJIS.CLICK} [**Event Details & Access**](<${event.url}>)`;
+          `-# ${EMOJIS.CLICK} [**Event Link**](<${event.url}>)`;
 
         await departuresChannel.send({ 
           content: flightAlertLayout 
@@ -229,12 +218,9 @@ async function checkUpcomingDepartures(client) {
 }
 
 function startCalendarLoop(client) {
-  updateCalendar(client);
-  checkUpcomingDepartures(client); 
-
-  setInterval(async () => {
-    if (isUpdating) return;
-    isUpdating = true;
+  const runTasks = async () => {
+    if (isCalendarUpdating) return;
+    isCalendarUpdating = true;
     try {
       await updateCalendar(client);
       await checkUpcomingDepartures(client);
@@ -242,9 +228,15 @@ function startCalendarLoop(client) {
       if (err.code === 50001 || err.code === 10003) return;
       console.error('Error in calendar interval loop:', err);
     } finally {
-      isUpdating = false;
+      isCalendarUpdating = false;
     }
-  }, 300000);
+  };
+
+  // Immediate execution on startup
+  runTasks();
+
+  // Scheduled execution every 5 minutes
+  setInterval(runTasks, 300000);
 }
 
 module.exports = { startCalendarLoop, updateCalendar, checkUpcomingDepartures };
