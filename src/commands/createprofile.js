@@ -6,10 +6,26 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('createprofile')
         .setDescription('Create or update a Roblox profile for a staff member')
-        .addUserOption(o => o.setName('user').setDescription('Discord user').setRequired(true))
-        .addStringOption(o => o.setName('roblox_username').setDescription('Roblox Username').setRequired(true))
-        .addStringOption(o => o.setName('roblox_id').setDescription('Roblox User ID').setRequired(true))
-        .addStringOption(o => o.setName('rank').setDescription('Staff Rank').setRequired(false)),
+        .addUserOption(o => 
+            o.setName('user')
+                .setDescription('Discord user')
+                .setRequired(true)
+        )
+        .addStringOption(o => 
+            o.setName('username')
+                .setDescription('Roblox Username')
+                .setRequired(true)
+        )
+        .addStringOption(o => 
+            o.setName('robloxid')
+                .setDescription('Roblox User ID')
+                .setRequired(true)
+        )
+        .addStringOption(o => 
+            o.setName('rank')
+                .setDescription('Staff Rank (Default: Flight Crew)')
+                .setRequired(false)
+        ),
 
     async execute(interaction) {
         if (typeof checkRole === 'function' && !(await checkRole(interaction))) return;
@@ -17,8 +33,8 @@ module.exports = {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         const user = interaction.options.getUser('user');
-        const robloxUsername = interaction.options.getString('roblox_username');
-        const robloxId = interaction.options.getString('roblox_id');
+        const robloxUsername = interaction.options.getString('username');
+        const robloxId = interaction.options.getString('robloxid');
         const rank = interaction.options.getString('rank') || 'Flight Crew';
 
         let profile = await Profile.findOne({ userId: user.id });
