@@ -113,11 +113,14 @@ function buildMainEmbed(flight = {}, allocations = {}) {
 }
 
 function buildButtons() {
+    // Filter out Captain (cpt) and First Officer (fo) from self-allocation dropdown menu options
+    const selectableRoles = ROLES.filter(role => role.key !== 'cpt' && role.key !== 'fo');
+
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('alloc_select_role')
         .setPlaceholder('Select a role to allocate or unallocate...')
         .addOptions(
-            ROLES.map(role => 
+            selectableRoles.map(role => 
                 new StringSelectMenuOptionBuilder()
                     .setLabel(role.label)
                     .setDescription(`Join or leave ${role.label} (max ${role.max})`)
