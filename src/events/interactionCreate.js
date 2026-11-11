@@ -1,6 +1,7 @@
 const { Events, MessageFlags, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const Allocation = require('../models/Allocation');
 const Loa = require('../models/Loa');
+const Profile = require('../models/Profile');
 const embeds = require('../utils/embeds'); 
 
 // Department Groups for Cross-Allocation Rules
@@ -311,7 +312,6 @@ module.exports = {
                         });
                     }
                 }
-                // ==========================================
 
                 await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
 
@@ -442,121 +442,193 @@ module.exports = {
         }
 
         // ==========================================
-        // 2. HANDLE LOA INITIAL MODAL SUBMISSIONS
+        // 2. MODAL SUBMISSIONS (LOA & PROFILE CREATION)
         // ==========================================
-        if (interaction.isModalSubmit() && interaction.customId === 'loa_modal') {
-            try {
-                const startStr = interaction.fields.getTextInputValue('loa_start');
-                const endStr = interaction.fields.getTextInputValue('loa_end');
-                const reason = interaction.fields.getTextInputValue('loa_reason');
+        if (interaction.isModalSubmit()) {
 
-                const parseDate = (str) => {
-                    const parts = str.split('/');
-                    return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]), 12, 0, 0);
-                };
+            // --- A. PROFILE SELF-CREATION MODAL ---
+            if (interaction.customId === 'modal_create_profile') {
+                try {
+                    const username = interaction.fields.getTextInputValue('input_roblox_username').trim();
+                    const robloxId = interaction.fields.getTextInputValue('input_roblox_id').trim();
 
-                const startDate = parseDate(startStr);
-                const endDate = parseDate(endStr);
+                    if (isNaN(robloxId)) {
+                        return await interaction.reply({
+                            content: '❌ **Invalid Roblox User ID.** Please enter numbers only (e.g. `1081092271`).',
+                            flags: [MessageFlags.Ephemeral]
+                        });
+                    }
 
-                if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-                    return await interaction.reply({ content: '❌ Invalid date layout. Please format strictly as **DD/MM/YYYY**.', flags: [MessageFlags.Ephemeral] });
+                    let profile = await Profile.findOne({ userId: interaction.user.id });
+
+                    if (profile) {
+                        profile.robloxUsername = username;
+                        profile.robloxId = robloxId;
+                        await profile.save();
+                    } else {
+                        profile = new Profile({
+                            userId: interaction.user.id,
+                            robloxUsername: username,
+                            robloxId: robloxId,
+                            rank: 'Flight Crew'
+                        });
+                        await profile.save();
+                    }
+
+                    return await interaction.reply({
+                        content: `✅ **Profile Created Successfully!**\nRegistered account as **${username}** (ID: ${robloxId}). Run \`/profile\` again to view your full profile!`,
+                        flags: [MessageFlags.Ephemeral]
+                    });
+                } catch (err) {
+                    console.error('Error saving profile from modal:', err);
+                    return await interaction.reply({
+                        content: '❌ Failed to save your profile to the database. Please contact Administration.',
+                        flags: [MessageFlags.Ephemeral]
+                    });
                 }
+            }
 
-                if (endDate <= startDate) {
-                    return await interaction.reply({ content: '❌ Your end date must fall completely after your start date.', flags: [MessageFlags.Ephemeral] });
+            // --- B. LOA INITIAL SUBMISSION ---
+            if (interaction.customId === 'loa_modal') {
+                try {
+                    const startStr = interaction.fields.getTextInputValue('loa_start');
+                    const endStr = interaction.fields.getTextInputValue('loa_end');
+                    const reason = interaction.fields.getTextInputValue('loa_reason');
+
+                    const parseDate = (str) => {
+                        const parts = str.split('/');
+                        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]), 12, 0, 0);
+                    };
+
+                    const startDate = parseDate(startStr);
+                    const endDate = parseDate(endStr);
+
+                    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                        return await interaction.reply({ content: '❌ Invalid date layout. Please format strictly as **DD/MM/YYYY**.', flags: [MessageFlags.Ephemeral] });
+                    }
+
+                    if (endDate <= startDate) {
+                        return await interaction.reply({ content: '❌ Your end date must fall completely after your start date.', flags: [MessageFlags.Ephemeral] });
+                    }
+
+                    const requestLogChannelId = process.env.LOA_LOG_CHANNEL_ID;
+                    const reviewChannel = await interaction.client.channels.fetch(requestLogChannelId).catch(() => null);
+                    
+                    if (!reviewChannel) {
+                        return await interaction.reply({ content: '❌ LOA system channel configuration error. Please inform administration.', flags: [MessageFlags.Ephemeral] });
+                    }
+
+                    const loaRecord = await Loa.create({
+                        userId: interaction.user.id,
+                        startDate,
+                        endDate,
+                        reason
+                    });
+
+                    const reviewEmbed = new EmbedBuilder()
+                        .setColor('#0C2340')
+                        .setTitle('New Leave of Absence Request')
+                        .setDescription(`┃ User: <@${interaction.user.id}>\n┃ From: ${startStr}\n┃ To: ${endStr}\n\nReason Given\n┃ \`${reason}\``)
+                        .setFooter({ text: 'LOT Polish Airlines • Flight Operations' })
+                        .setTimestamp();
+
+                    const row = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId(`loa_approve_${loaRecord._id}`).setLabel('Approve').setStyle(ButtonStyle.Success),
+                        new ButtonBuilder().setCustomId(`loa_deny_${loaRecord._id}`).setLabel('Deny').setStyle(ButtonStyle.Danger)
+                    );
+
+                    const reviewMessage = await reviewChannel.send({ embeds: [reviewEmbed], components: [row] });
+                    
+                    loaRecord.reviewMessageId = reviewMessage.id;
+                    await loaRecord.save();
+
+                    return await interaction.reply({ content: '✅ Your LOA request has been successfully forwarded to management for review.', flags: [MessageFlags.Ephemeral] });
+
+                } catch (err) {
+                    console.error(err);
+                    return await interaction.reply({ content: '❌ Something went wrong saving your request.', flags: [MessageFlags.Ephemeral] });
                 }
+            }
 
-                const requestLogChannelId = process.env.LOA_LOG_CHANNEL_ID;
-                const reviewChannel = await interaction.client.channels.fetch(requestLogChannelId).catch(() => null);
-                
-                if (!reviewChannel) {
-                    return await interaction.reply({ content: '❌ LOA system channel configuration error. Please inform administration.', flags: [MessageFlags.Ephemeral] });
+            // --- C. LOA EDIT END DATE MODAL ---
+            if (interaction.customId.startsWith('loa_editmodal_')) {
+                try {
+                    const recordId = interaction.customId.split('_')[2];
+                    const newEndStr = interaction.fields.getTextInputValue('loa_new_end');
+                    
+                    const parts = newEndStr.split('/');
+                    const newEndDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]), 12, 0, 0);
+
+                    if (isNaN(newEndDate.getTime())) {
+                        return await interaction.reply({ content: '❌ Invalid date layout. Please format strictly as DD/MM/YYYY.', flags: [MessageFlags.Ephemeral] });
+                    }
+
+                    const loaRecord = await Loa.findById(recordId);
+                    if (!loaRecord) return await interaction.reply({ content: '❌ Record not found.', flags: [MessageFlags.Ephemeral] });
+
+                    if (newEndDate <= loaRecord.startDate) {
+                        return await interaction.reply({ content: '❌ New end date must fall completely after the start date.', flags: [MessageFlags.Ephemeral] });
+                    }
+
+                    loaRecord.endDate = newEndDate;
+                    if (loaRecord.status === 'EXPIRED') {
+                        loaRecord.status = 'APPROVED';
+                        loaRecord.roleRemoved = false;
+                    }
+                    await loaRecord.save();
+
+                    const formatDateStr = (dateObj) => {
+                        const d = new Date(dateObj);
+                        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                    };
+
+                    const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                        .setDescription(`┃ This leave request has been approved.\n\nMember\n┃ <@${loaRecord.userId}>\n\nApproved Dates (Modified)\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``);
+
+                    await interaction.message.edit({ embeds: [updatedEmbed] });
+                    return await interaction.reply({ content: '✅ Leave of absence expiration window adjusted successfully.', flags: [MessageFlags.Ephemeral] });
+
+                } catch (err) {
+                    console.error(err);
+                    return await interaction.reply({ content: '❌ Error processing date shift.', flags: [MessageFlags.Ephemeral] });
                 }
-
-                const loaRecord = await Loa.create({
-                    userId: interaction.user.id,
-                    startDate,
-                    endDate,
-                    reason
-                });
-
-                const reviewEmbed = new EmbedBuilder()
-                    .setColor('#0C2340')
-                    .setTitle('New Leave of Absence Request')
-                    .setDescription(`┃ User: <@${interaction.user.id}>\n┃ From: ${startStr}\n┃ To: ${endStr}\n\nReason Given\n┃ \`${reason}\``)
-                    .setFooter({ text: 'LOT Polish Airlines • Flight Operations' })
-                    .setTimestamp();
-
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`loa_approve_${loaRecord._id}`).setLabel('Approve').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`loa_deny_${loaRecord._id}`).setLabel('Deny').setStyle(ButtonStyle.Danger)
-                );
-
-                const reviewMessage = await reviewChannel.send({ embeds: [reviewEmbed], components: [row] });
-                
-                loaRecord.reviewMessageId = reviewMessage.id;
-                await loaRecord.save();
-
-                return await interaction.reply({ content: '✅ Your LOA request has been successfully forwarded to management for review.', flags: [MessageFlags.Ephemeral] });
-
-            } catch (err) {
-                console.error(err);
-                return await interaction.reply({ content: '❌ Something went wrong saving your request.', flags: [MessageFlags.Ephemeral] });
             }
         }
 
         // ==========================================
-        // 3. HANDLE LOA END DATE MODAL SUBMISSION
-        // ==========================================
-        if (interaction.isModalSubmit() && interaction.customId.startsWith('loa_editmodal_')) {
-            try {
-                const recordId = interaction.customId.split('_')[2];
-                const newEndStr = interaction.fields.getTextInputValue('loa_new_end');
-                
-                const parts = newEndStr.split('/');
-                const newEndDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]), 12, 0, 0);
-
-                if (isNaN(newEndDate.getTime())) {
-                    return await interaction.reply({ content: '❌ Invalid date layout. Please format strictly as DD/MM/YYYY.', flags: [MessageFlags.Ephemeral] });
-                }
-
-                const loaRecord = await Loa.findById(recordId);
-                if (!loaRecord) return await interaction.reply({ content: '❌ Record not found.', flags: [MessageFlags.Ephemeral] });
-
-                if (newEndDate <= loaRecord.startDate) {
-                    return await interaction.reply({ content: '❌ New end date must fall completely after the start date.', flags: [MessageFlags.Ephemeral] });
-                }
-
-                loaRecord.endDate = newEndDate;
-                if (loaRecord.status === 'EXPIRED') {
-                    loaRecord.status = 'APPROVED';
-                    loaRecord.roleRemoved = false;
-                }
-                await loaRecord.save();
-
-                const formatDateStr = (dateObj) => {
-                    const d = new Date(dateObj);
-                    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                };
-
-                const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-                    .setDescription(`┃ This leave request has been approved.\n\nMember\n┃ <@${loaRecord.userId}>\n\nApproved Dates (Modified)\n┃ ${formatDateStr(loaRecord.startDate)} to ${formatDateStr(loaRecord.endDate)}\n\nReason Given\n┃ \`${loaRecord.reason}\``);
-
-                await interaction.message.edit({ embeds: [updatedEmbed] });
-                return await interaction.reply({ content: '✅ Leave of absence expiration window adjusted successfully.', flags: [MessageFlags.Ephemeral] });
-
-            } catch (err) {
-                console.error(err);
-                return await interaction.reply({ content: '❌ Error processing date shift.', flags: [MessageFlags.Ephemeral] });
-            }
-        }
-
-        // ==========================================
-        // 4. BUTTON HANDLERS (LOA & FLIGHT DECK LOTTERY)
+        // 3. BUTTON HANDLERS (PROFILE, LOA & FLIGHT DECK)
         // ==========================================
         if (interaction.isButton()) {
             
-            // --- A. FLIGHT DECK LOTTERY POOL BUTTONS ---
+            // --- A. TRIGGER PROFILE CREATION MODAL ---
+            if (interaction.customId === 'btn_open_profile_modal') {
+                const modal = new ModalBuilder()
+                    .setCustomId('modal_create_profile')
+                    .setTitle('LOT Staff Profile Registration');
+
+                const usernameInput = new TextInputBuilder()
+                    .setCustomId('input_roblox_username')
+                    .setLabel('Roblox Username')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('e.g. ArasWorld2')
+                    .setRequired(true);
+
+                const idInput = new TextInputBuilder()
+                    .setCustomId('input_roblox_id')
+                    .setLabel('Roblox User ID')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('e.g. 1081092271')
+                    .setRequired(true);
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(usernameInput),
+                    new ActionRowBuilder().addComponents(idInput)
+                );
+
+                return await interaction.showModal(modal);
+            }
+
+            // --- B. FLIGHT DECK LOTTERY POOL BUTTONS ---
             if (interaction.customId.startsWith('fd_apply_cpt_') || interaction.customId.startsWith('fd_apply_fo_')) {
                 try {
                     const isCpt = interaction.customId.startsWith('fd_apply_cpt_');
@@ -614,7 +686,7 @@ module.exports = {
                 }
             }
 
-            // --- B. LOA MANAGEMENT ACTION BUTTONS ---
+            // --- C. LOA MANAGEMENT ACTION BUTTONS ---
             if (interaction.customId.startsWith('loa_')) {
                 if (!interaction.member.permissions.has('ManageMessages')) {
                     return await interaction.reply({ content: '🚫 You lack permission to manage LOA records.', flags: [MessageFlags.Ephemeral] });
@@ -760,7 +832,7 @@ module.exports = {
         }
 
         // ==========================================
-        // 5. CHAT COMMAND DISPATCHER
+        // 4. CHAT COMMAND DISPATCHER
         // ==========================================
         if (!interaction.isChatInputCommand()) return;
 
