@@ -43,15 +43,15 @@ for (const file of commandFiles) {
             const commandJSON = command.data.toJSON();
             commands.push(commandJSON);
             loadedCount++;
-            console.log(`  ✅ Loaded command: /${command.data.name} (${file})`);
+            console.log(`   ✅ Loaded command: /${command.data.name} (${file})`);
             logDebug(`Payload: /${command.data.name}`, commandJSON);
         } else {
             skippedCount++;
-            console.warn(`  ⚠️ [WARNING] "${file}" is missing a required "data" or "execute" export.`);
+            console.warn(`   ⚠️ [WARNING] "${file}" is missing a required "data" or "execute" export.`);
         }
     } catch (err) {
         skippedCount++;
-        console.error(`  ❌ [ERROR] Failed to load "${file}":`, err.message);
+        console.error(`   ❌ [ERROR] Failed to load "${file}":`, err.message);
         if (isDebug) console.error(err.stack);
     }
 }
@@ -65,9 +65,18 @@ if (!token) {
     process.exit(1);
 }
 
-// Extract Client ID directly from bot token
-const clientId = Buffer.from(token.split('.')[0], 'base64').toString('utf-8');
-const guildId = process.env.PERSONNEL_GUILD_ID;
+// Extract Client ID directly from bot token or fallback to env
+let clientId = process.env.CLIENT_ID;
+if (!clientId) {
+    try {
+        clientId = Buffer.from(token.split('.')[0], 'base64').toString('utf-8');
+    } catch {
+        console.error("❌ ERROR: Failed to extract CLIENT_ID from token.");
+        process.exit(1);
+    }
+}
+
+const guildId = process.env.GUILD_ID || process.env.PERSONNEL_GUILD_ID;
 
 logDebug('Authentication Details', { clientId, guildId: guildId || 'GLOBAL' });
 
@@ -88,7 +97,7 @@ const rest = new REST({ version: '10' }).setToken(token);
             console.log(`✅ Successfully reloaded ${data.length} guild application (/) commands.`);
             logDebug('Discord API Response', data);
         } else {
-            console.warn("⚠️ No PERSONNEL_GUILD_ID set. Deploying GLOBALLY...");
+            console.warn("⚠️ No GUILD_ID set in environment variables. Deploying GLOBALLY...");
             logDebug('REST Endpoint', `PUT -> Routes.applicationCommands(${clientId})`);
 
             const data = await rest.put(
