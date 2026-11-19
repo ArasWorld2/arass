@@ -6,10 +6,10 @@ const EMOJIS = {
 };
 
 let isUpdating = false;
+let cachedMessageId = process.env.CALENDAR_MESSAGE_ID || null;
 
 async function updateCalendar(client) {
   const calendarChannelId = process.env.CALENDAR_CHANNEL_ID;
-  let calendarMessageId   = process.env.CALENDAR_MESSAGE_ID;
   const calendarGuildId   = process.env.CALENDAR_GUILD_ID;
   if (!calendarChannelId || !calendarGuildId) return;
 
@@ -82,11 +82,13 @@ async function updateCalendar(client) {
       })
       .setTitle(`${EMOJIS.TAIL} Flight Timetable & Schedule`)
       .setDescription(descriptionText)
-      .setFooter({ text: 'LOT Polish Airlines Operations' });
+      .setFooter({ text: 'LOT Polish Airlines Operations' })
+      .setTimestamp();
 
     const channel = await client.channels.fetch(calendarChannelId);
 
-    if (!calendarMessageId) {
+    // Search history if no message ID is cached yet
+    if (!cachedMessageId) {
       console.log("🔍 Searching channel history for existing calendar message...");
       const history = await channel.messages.fetch({ limit: 20 });
       const existingCalendar = history.find(msg => 
@@ -97,23 +99,33 @@ async function updateCalendar(client) {
       );
       
       if (existingCalendar) {
-        calendarMessageId = existingCalendar.id;
-        console.log(`📌 Found calendar message ID: ${calendarMessageId}`);
+        cachedMessageId = existingCalendar.id;
+        console.log(`📌 Found existing calendar message ID: ${cachedMessageId}`);
       }
     }
 
-    if (calendarMessageId) {
+    // Attempt to edit existing calendar message
+    if (cachedMessageId) {
       try {
-        const msg = await channel.messages.fetch(calendarMessageId);
+        const msg = await channel.messages.fetch(cachedMessageId);
         await msg.edit({ content: '', embeds: [embed] });
         return; 
       } catch (fetchErr) {
-        console.log("Old calendar message not found. Sending a new one...");
+        // Only send a new message if Discord explicitly says the message was deleted (10008)
+        if (fetchErr.code === 10008) {
+          console.log("Old calendar message was deleted. Sending a new one...");
+          cachedMessageId = null;
+        } else {
+          // Network timeout / AbortError: abort this update instead of duplicating
+          console.warn(`Skipping calendar update due to transient fetch error: ${fetchErr.message}`);
+          return;
+        }
       }
     }
 
     const newMsg = await channel.send({ content: '', embeds: [embed] });
-    console.log(`📅 New Calendar posted! CALENDAR_MESSAGE_ID=${newMsg.id}`);
+    cachedMessageId = newMsg.id;
+    console.log(`📅 New Calendar posted! Set CALENDAR_MESSAGE_ID=${newMsg.id} in your .env to persist across restarts.`);
 
   } catch (err) {
     if (err.code === 50001 || err.code === 10003) return;
@@ -135,7 +147,7 @@ function startCalendarLoop(client) {
     } finally {
       isUpdating = false;
     }
-  }, 300000);
+  }, 5 * 60 * 1000); // 5 minutes
 }
 
 module.exports = { startCalendarLoop, updateCalendar };
