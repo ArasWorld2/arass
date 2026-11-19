@@ -147,7 +147,7 @@ function startCalendarLoop(client) {
     } finally {
       isUpdating = false;
     }
-  }, 5 * 60 * 1000); // 5 minutes
+  }, 2 * 60 * 1000; // 5 minutes
 }
 
 module.exports = { startCalendarLoop, updateCalendar };
